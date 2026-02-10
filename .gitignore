@@ -60,3 +60,13 @@ Thumbs.db
 
 # Git (keep these)
 !.gitkeep
+
+# Windows artifacts (from bash command compatibility issues)
+nul
+NUL
+C:*Users*
+C*
+
+# Accidental files from path operations
+*.engoOneDrive
+*OneDrive
