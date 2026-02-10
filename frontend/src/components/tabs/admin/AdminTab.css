@@ -1,0 +1,85 @@
+.admin-tab-container {
+  display: flex;
+  height: 100%;
+  background: var(--bg-wood-dark);
+}
+
+.admin-sidebar {
+  width: 200px;
+  background: var(--bg-wood);
+  border-right: 2px solid var(--border-wood);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.admin-sidebar-header {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-wood);
+}
+
+.admin-sidebar-header h2 {
+  margin: 0 0 4px 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--accent-gold);
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.admin-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.admin-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(44, 24, 16, 0.5);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-parchment);
+  font-family: var(--font-body);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.admin-tab-btn:hover {
+  background: rgba(255, 215, 0, 0.1);
+  border-color: rgba(255, 215, 0, 0.3);
+}
+
+.admin-tab-btn.active {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 107, 53, 0.1));
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.tab-icon {
+  font-size: 16px;
+  width: 24px;
+  text-align: center;
+}
+
+.tab-label {
+  flex: 1;
+}
+
+.admin-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+  background: var(--bg-wood-dark);
+}

@@ -1,0 +1,80 @@
+.admin-tab {
+  padding: 24px;
+  color: var(--text-parchment);
+  font-family: var(--font-body);
+}
+
+.admin-tab h3 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--accent-gold);
+  margin-bottom: 20px;
+  text-shadow: 0 0 10px rgba(255, 179, 71, 0.2);
+}
+
+.admin-tab h4 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--text-parchment);
+  margin: 24px 0 12px 0;
+}
+
+.admin-tab p {
+  color: var(--text-stardust);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.admin-tab ul {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.admin-tab li {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(139, 90, 43, 0.3);
+  color: var(--text-stardust);
+}
+
+.admin-tab li:last-child {
+  border-bottom: none;
+}
+
+.admin-tab pre {
+  background: rgba(44, 24, 16, 0.8);
+  border: 1px solid rgba(139, 90, 43, 0.4);
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-parchment);
+}
+
+.admin-tab code {
+  background: rgba(255, 179, 71, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--accent-gold);
+}
+
+.admin-tab button {
+  margin-top: 16px;
+  margin-right: 12px;
+}
+
+/* Status indicators */
+.status-success {
+  color: var(--color-success);
+}
+
+.status-warning {
+  color: var(--color-warning);
+}
+
+.status-error {
+  color: var(--color-error);
+}

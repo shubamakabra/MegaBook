@@ -1,0 +1,460 @@
+/* 
+ * MegaBook Theme: The Cozy Tavern Grimoire
+ * Warm tavern atmosphere meets magical grimoire - wood tones, amber lighting, cozy vibes
+ */
+
+/* Import mystical fonts */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=MedievalSharp&display=swap');
+
+/* CSS Variables - Tavern Grimoire Theme */
+:root {
+  /* Wood Colors - Tavern Foundation */
+  --bg-wood-dark: #1a1209;
+  --bg-wood: #2c1810;
+  --bg-wood-light: #3d2416;
+  --bg-wood-warm: #4a2c1a;
+  
+  /* Tavern Background - Warm & Cozy */
+  --color-bg-primary: #1a1209;
+  --color-bg-secondary: #2c1810;
+  --color-bg-tertiary: #3d2416;
+  --color-bg-elevated: #4a2c1a;
+  --color-bg-glow: rgba(255, 147, 41, 0.08);
+  
+  /* Amber & Gold - Candlelight & Warmth */
+  --color-gold: #ffb347;
+  --color-gold-light: #ffd700;
+  --color-gold-dark: #ff8c00;
+  --color-gold-glow: rgba(255, 179, 71, 0.3);
+  
+  /* Fire Colors - Hearth Warmth */
+  --color-amber: #ff6b35;
+  --color-amber-light: #ff8c42;
+  --color-fire: #ff4500;
+  --color-fire-glow: rgba(255, 69, 0, 0.15);
+  
+  /* Magic Colors - Subtle Mystical Accents */
+  --color-cyan: #5f9ea0;
+  --color-cyan-dim: rgba(95, 158, 160, 0.15);
+  --color-purple: #8b5a8c;
+  --color-purple-light: #a67ba7;
+  --color-magic-glow: rgba(139, 90, 140, 0.15);
+  
+  /* Text Colors - Parchment & Candlelight */
+  --color-text-primary: #f5e6d3;
+  --color-text-secondary: #e6d5c3;
+  --color-text-muted: #b8a090;
+  --color-text-disabled: #6b5b4f;
+  
+  /* Tavern-specific aliases */
+  --text-parchment: #f5e6d3;
+  --text-stardust: #b8a090;
+  --text-muted: #8b7355;
+  --accent-gold: #ffb347;
+  --accent-amber: #ff6b35;
+  --accent-warm: #ff8c00;
+  --bg-void: #1a1209;
+  
+  /* Borders - Warm Wood */
+  --color-border: rgba(139, 90, 43, 0.4);
+  --color-border-hover: rgba(255, 179, 71, 0.5);
+  --color-border-magic: rgba(139, 90, 140, 0.3);
+  --border-wood: rgba(61, 36, 22, 0.8);
+  
+  /* Status Colors */
+  --color-success: #7cb342;
+  --color-warning: #ffb74d;
+  --color-error: #e57373;
+  
+  /* Typography */
+  --font-display: 'Cinzel Decorative', 'Cinzel', serif;
+  --font-body: 'Cormorant Garamond', Georgia, serif;
+  --font-magic: 'MedievalSharp', cursive;
+  --font-mono: 'Fira Code', 'Consolas', monospace;
+  
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-medium: 250ms ease;
+  --transition-slow: 400ms ease;
+  --transition-magic: 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Shadows - Warm Tavern Lighting */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
+  --shadow-gold: 0 0 30px rgba(255, 179, 71, 0.2);
+  --shadow-gold-strong: 0 0 50px rgba(255, 179, 71, 0.3);
+  --shadow-fire: 0 0 30px rgba(255, 107, 53, 0.15);
+  
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+/* Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--color-bg-primary);
+}
+
+body {
+  font-family: var(--font-body);
+  background: 
+    radial-gradient(ellipse at 10% 20%, rgba(255, 107, 53, 0.08) 0%, transparent 40%),
+    radial-gradient(ellipse at 90% 80%, rgba(255, 179, 71, 0.06) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 100%, rgba(139, 90, 43, 0.1) 0%, transparent 50%),
+    linear-gradient(180deg, 
+      var(--color-bg-primary) 0%,
+      var(--color-bg-secondary) 50%,
+      var(--bg-wood-dark) 100%
+    );
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+/* Tavern Ambiance - Candlelight Flicker Effect */
+#root::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(2px 2px at 30px 40px, rgba(255, 179, 71, 0.15), transparent),
+    radial-gradient(1px 1px at 80px 90px, rgba(255, 107, 53, 0.1), transparent),
+    radial-gradient(2px 2px at 140px 30px, rgba(255, 140, 0, 0.12), transparent),
+    radial-gradient(1px 1px at 200px 100px, rgba(255, 179, 71, 0.1), transparent);
+  background-repeat: repeat;
+  background-size: 250px 150px;
+  animation: candlelight 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes candlelight {
+  0%, 100% { opacity: 0.6; }
+  25% { opacity: 0.8; }
+  50% { opacity: 0.5; }
+  75% { opacity: 0.9; }
+}
+
+/* Wood Texture Overlay */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Custom Scrollbar - Warm Wood */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--bg-wood-light), var(--bg-wood-warm));
+  border-radius: 5px;
+  border: 2px solid var(--color-bg-secondary);
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--color-gold-dark), var(--color-gold));
+  box-shadow: 0 0 10px rgba(255, 179, 71, 0.3);
+}
+
+/* Selection - Warm Gold */
+::selection {
+  background: rgba(255, 179, 71, 0.3);
+  color: var(--color-text-primary);
+}
+
+/* Headings - Tavern Sign Style */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-gold);
+  letter-spacing: 0.05em;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(255, 179, 71, 0.2);
+}
+
+h1 {
+  font-size: 2.4rem;
+  background: linear-gradient(135deg, var(--color-gold), var(--color-gold-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+h2 {
+  font-size: 1.9rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+/* Links - Warm Glow */
+a {
+  color: var(--color-amber);
+  text-decoration: none;
+  transition: var(--transition-fast);
+  position: relative;
+}
+
+a:hover {
+  color: var(--color-gold);
+  text-shadow: 0 0 15px rgba(255, 179, 71, 0.4);
+}
+
+/* Buttons - Tavern Style */
+button {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: var(--transition-medium);
+  border: none;
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
+  box-shadow: 0 0 15px rgba(255, 179, 71, 0.3);
+}
+
+/* Primary Button - Warm Gold */
+.btn-primary {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--color-gold-dark), var(--color-gold));
+  color: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  box-shadow: 
+    0 4px 15px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(255, 179, 71, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 179, 71, 0.4);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(255, 179, 71, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.btn-primary:active {
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Secondary Button - Wood Border */
+.btn-secondary {
+  padding: 10px 20px;
+  background: rgba(44, 24, 16, 0.6);
+  color: var(--color-gold);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: var(--transition-fast);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 179, 71, 0.1);
+  border-color: var(--color-gold);
+  box-shadow: 0 0 20px rgba(255, 179, 71, 0.2);
+}
+
+/* Inputs - Tavern Table Style */
+input, textarea, select {
+  font-family: var(--font-body);
+  font-size: 16px;
+  background: rgba(44, 24, 16, 0.6);
+  border: 2px solid rgba(139, 90, 43, 0.4);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  padding: 10px 16px;
+  transition: var(--transition-fast);
+  outline: none;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--color-gold);
+  box-shadow: 
+    0 0 0 3px rgba(255, 179, 71, 0.1),
+    0 0 20px rgba(255, 179, 71, 0.15);
+  background: rgba(44, 24, 16, 0.8);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+input:disabled {
+  background: rgba(26, 18, 9, 0.8);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* Cards - Tavern Card */
+.card {
+  background: linear-gradient(135deg, rgba(61, 36, 22, 0.7), rgba(44, 24, 16, 0.8));
+  border: 2px solid rgba(139, 90, 43, 0.3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: 
+    var(--shadow-md),
+    0 0 30px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 179, 71, 0.4),
+    rgba(255, 140, 0, 0.6),
+    rgba(255, 179, 71, 0.4),
+    transparent
+  );
+}
+
+/* Divider - Warm Glow */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(139, 90, 43, 0.6),
+    rgba(255, 179, 71, 0.4),
+    rgba(139, 90, 43, 0.6),
+    transparent
+  );
+  margin: var(--space-md) 0;
+}
+
+/* Badges - Tavern Tags */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  background: rgba(255, 179, 71, 0.15);
+  border: 1px solid rgba(255, 179, 71, 0.3);
+  border-radius: 16px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-gold);
+}
+
+/* Animations */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(255, 179, 71, 0.2), 0 0 15px rgba(255, 179, 71, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(255, 179, 71, 0.3), 0 0 25px rgba(255, 179, 71, 0.15);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes pulse-gold {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 179, 71, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 179, 71, 0.25);
+  }
+}
+
+/* Utility Classes */
+.text-gold {
+  color: var(--color-gold);
+}
+
+.text-amber {
+  color: var(--color-amber);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.glow-gold {
+  animation: glow 2.5s ease-in-out infinite;
+}
+
+.glow-pulse {
+  animation: pulse-gold 2.5s ease-in-out infinite;
+}
+
+.float {
+  animation: float 4s ease-in-out infinite;
+}

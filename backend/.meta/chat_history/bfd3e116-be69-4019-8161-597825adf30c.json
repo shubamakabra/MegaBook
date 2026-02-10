@@ -1,0 +1,10 @@
+[
+  {
+    "role": "user",
+    "content": "Hello"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello! Welcome to your virtual DM's table. I'm here to help you craft unforgettable adventures, whether you're building a sprawling fantasy world, statting out a memorable NPC, or stuck on what should happen in next week's session.\n\n**What can I help you with today?** For example:\n- **Worldbuilding** – Creating cities, cultures, pantheons, or ancient histories\n- **Character Creation** – Backstories, subclasses, motivations, or party dynamics  \n- **Plot & Encounters** – Session hooks, dungeon design, plot twists, or villain schemes\n- **Rules & Mechanics** – Clarifying systems, homebrew balance, or encounter difficulty\n- **Improvisation** – Quick NPC names, shop inventories, or \"what happens when the players do *that*?\"\n\nAre you working on a specific campaign right now, or just browsing for inspiration? Tell me about your setting or what you're stuck on!"
+  }
+]

@@ -1,0 +1,33 @@
+INFO:     Started server process [39648]
+INFO:     Waiting for application startup.
+Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('0.0.0.0', 8000): only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+Starting MegaBook backend...
+Warning: Git repository not initialized: . is not a valid Git repository
+
+============================================================
+[INIT] Initializing LLM provider: openai_compatible
+============================================================
+[INIT] Provider type: OPENAI_COMPATIBLE
+   DEBUG - settings.chat_model: Kimi-K2.5
+   DEBUG - settings.azure_deployment: Kimi-K2.5
+   DEBUG - Final model: Kimi-K2.5
+   Base URL: https://agent-garage.services.ai.azure.com/openai/deployments/Kimi-K2.5/chat/completions
+   API Key: ********************
+   (Using AZURE_ENDPOINT: True)
+   (Using AZURE_API_KEY: True)
+
+[INIT] Creating OpenAI-compatible provider...
+   [CONN] Connecting to: https://agent-garage.services.ai.azure.com/openai/deployments/Kimi-K2.5/chat/completions
+   [MODEL] Model: Kimi-K2.5
+   [AZURE] Detected Azure endpoint - preserving query params
+[OK] OpenAI-compatible client initialized
+[OK] OpenAI-compatible provider initialized successfully
+============================================================
+
+MegaBook backend started successfully
+Shutting down MegaBook backend...

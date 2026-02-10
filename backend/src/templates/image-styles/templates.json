@@ -1,0 +1,94 @@
+{
+  "templates": [
+    {
+      "id": "character-portrait-realistic",
+      "name": "Character Portrait - Realistic",
+      "category": "characters",
+      "description": "Photorealistic fantasy character portrait with dramatic lighting",
+      "base_prompt": "High-quality photorealistic portrait, fantasy character, dramatic studio lighting, detailed facial features, professional photography, 8k resolution, sharp focus on face, cinematic composition",
+      "style_suffix": "bokeh background, depth of field, professional headshot style",
+      "negative_prompt": "cartoon, anime, illustration, painting, blurry, low quality, deformed"
+    },
+    {
+      "id": "character-portrait-painted",
+      "name": "Character Portrait - Painted",
+      "category": "characters",
+      "description": "Painterly fantasy portrait in classical art style",
+      "base_prompt": "Oil painting portrait, fantasy character, rich vibrant colors, visible brush strokes, classical art style, museum quality, Renaissance-inspired lighting, textured canvas",
+      "style_suffix": "artistic interpretation, painterly style, traditional media",
+      "negative_prompt": "photorealistic, 3D render, anime, cartoon, photograph, modern digital art"
+    },
+    {
+      "id": "character-fullbody",
+      "name": "Character Full Body",
+      "category": "characters",
+      "description": "Full body character illustration with dynamic pose and complete outfit",
+      "base_prompt": "Full body character illustration, dynamic action pose, complete outfit and equipment visible, fantasy art style, heroic stance, detailed costume design",
+      "style_suffix": "character reference sheet style, professional concept art, detailed from head to toe",
+      "negative_prompt": "portrait only, cropped, partial body, close-up, missing limbs"
+    },
+    {
+      "id": "fantasy-landscape",
+      "name": "Fantasy Landscape",
+      "category": "environments",
+      "description": "Epic wide-angle fantasy vista with atmospheric perspective",
+      "base_prompt": "Epic fantasy landscape, wide panoramic view, dramatic sky, atmospheric perspective, detailed environment, matte painting style, sense of scale and grandeur",
+      "style_suffix": "cinematic composition, golden hour lighting, vast environment",
+      "negative_prompt": "portrait, character focus, indoor, close-up, interior"
+    },
+    {
+      "id": "dungeon-interior",
+      "name": "Dungeon Interior",
+      "category": "environments",
+      "description": "Atmospheric torch-lit dungeon or interior scene",
+      "base_prompt": "Dark dungeon interior, torch lighting, stone walls and floors, atmospheric shadows, mysterious atmosphere, detailed medieval architecture, moody ambiance",
+      "style_suffix": "warm torchlight, deep shadows, sense of danger and exploration",
+      "negative_prompt": "bright daylight, outdoor, landscape, modern architecture, cheerful"
+    },
+    {
+      "id": "item-artifact",
+      "name": "Item or Artifact",
+      "category": "items",
+      "description": "Detailed magic item or artifact on neutral background",
+      "base_prompt": "Magic item product photography, detailed artifact or weapon, neutral gradient background, professional studio lighting, centered composition, material textures visible",
+      "style_suffix": "studio lighting, sharp details, museum display style",
+      "negative_prompt": "character, person, landscape, busy background, hands holding item, context"
+    },
+    {
+      "id": "battle-scene",
+      "name": "Battle Scene",
+      "category": "scenes",
+      "description": "Action-packed combat encounter with dynamic movement",
+      "base_prompt": "Epic battle scene, dynamic action, combat poses, dramatic lighting, chaos and movement, fantasy warfare, clashing weapons, magical effects",
+      "style_suffix": "motion and energy, sparks and effects, intense dramatic composition",
+      "negative_prompt": "peaceful, static pose, portrait, calm scene, talking"
+    },
+    {
+      "id": "settlement-city",
+      "name": "Settlement or City",
+      "category": "environments",
+      "description": "Architectural establishing shot of towns or cities",
+      "base_prompt": "Fantasy cityscape or village, architectural details, establishing shot, detailed buildings, medieval fantasy style, sense of scale and population",
+      "style_suffix": "golden hour or dawn lighting, atmospheric perspective, living world",
+      "negative_prompt": "close-up, interior, portrait, modern city, skyscrapers"
+    },
+    {
+      "id": "monster-creature",
+      "name": "Monster or Creature",
+      "category": "creatures",
+      "description": "Dramatic monster or creature with threatening presence",
+      "base_prompt": "Fantasy monster creature, dramatic lighting, threatening pose, detailed anatomy, fierce expression, epic scale, dangerous atmosphere",
+      "style_suffix": "dynamic angle, menacing atmosphere, detailed textures scales fur",
+      "negative_prompt": "cute, friendly, cartoon, domesticated, pet-like"
+    },
+    {
+      "id": "atmospheric-scene",
+      "name": "Atmospheric Scene",
+      "category": "scenes",
+      "description": "Moody environmental storytelling scene",
+      "base_prompt": "Atmospheric fantasy scene, environmental storytelling, moody lighting, sense of journey, campfire light, travel scene, evocative mood",
+      "style_suffix": "cinematic color grading, emotional atmosphere, storytelling composition",
+      "negative_prompt": "bright daylight, indoor, static, boring, plain"
+    }
+  ]
+}

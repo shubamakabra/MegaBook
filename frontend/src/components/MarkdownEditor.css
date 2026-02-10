@@ -1,0 +1,77 @@
+.markdown-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1e1e1e;
+}
+
+.markdown-editor.empty,
+.markdown-editor.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1e1e1e;
+}
+
+.empty-message,
+.loading-message {
+  color: #666;
+  font-size: 14px;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #252526;
+  border-bottom: 1px solid #333;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-path {
+  font-size: 13px;
+  color: #e0e0e0;
+  font-family: 'Consolas', monospace;
+}
+
+.dirty-indicator {
+  color: #e0e0e0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-save {
+  padding: 6px 16px;
+  background: #238636;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: #2ea043;
+}
+
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editor-container {
+  flex: 1;
+  overflow: hidden;
+}
