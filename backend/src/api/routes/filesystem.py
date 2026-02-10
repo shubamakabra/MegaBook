@@ -142,26 +142,54 @@ async def get_file_tree(
     
     files = fs.list_files(layer=knowledge_layer)
     
-    # Build tree structure
-    tree = {}
-    for f in files:
-        parts = f.relative_path.split("/")
-        current = tree
-        for i, part in enumerate(parts):
-            if i == len(parts) - 1:
+    # Build tree structure as array (for frontend compatibility)
+    def build_tree(path: str = "") -> list:
+        """Recursively build tree array structure."""
+        items = []
+        
+        # Get items at current path
+        if path:
+            current_files = [f for f in files if f.relative_path.startswith(path + "/")]
+        else:
+            current_files = files
+        
+        # Get immediate children
+        seen = set()
+        for f in current_files:
+            rel_path = f.relative_path[len(path):] if path else f.relative_path
+            if rel_path.startswith("/"):
+                rel_path = rel_path[1:]
+            
+            parts = rel_path.split("/")
+            name = parts[0]
+            
+            if name in seen:
+                continue
+            seen.add(name)
+            
+            if len(parts) == 1:
                 # File
-                current[part] = {
+                items.append({
+                    "name": name,
                     "type": "file",
                     "path": f.relative_path,
                     "size": f.size,
                     "modified": f.modified,
-                }
+                })
             else:
                 # Directory
-                if part not in current:
-                    current[part] = {"type": "directory", "children": {}}
-                current = current[part]["children"]
+                child_path = path + "/" + name if path else name
+                children = build_tree(child_path)
+                items.append({
+                    "name": name,
+                    "type": "directory",
+                    "path": child_path,
+                    "children": children,
+                })
+        
+        return items
     
+    tree = build_tree()
     return tree
 
 

@@ -332,6 +332,13 @@ class ApiService {
     return response.data;
   }
 
+  async getImageGallery(limit: number = 50, offset: number = 0) {
+    const response = await this.client.get('/api/imagegen/gallery', {
+      params: { limit, offset },
+    });
+    return response.data;
+  }
+
   async createImagePrompt(data: {
     name: string;
     category: string;
