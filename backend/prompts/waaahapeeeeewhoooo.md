@@ -1,0 +1,1 @@
+I dont know where i am. Its dark and noisy. I seem to be stuck inside a computer

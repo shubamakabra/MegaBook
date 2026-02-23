@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import themeTinyUrl from '../../assets/theme-tiny.png';
 import './AppLayout.css';
 
-export type TabType = 'chat' | 'notes' | 'wiki' | 'files' | 'imagegen' | 'admin';
+export type TabType = 'chat' | 'notes' | 'wiki' | 'files' | 'imagegen' | 'prompts' | 'admin';
 
 interface AppLayoutProps {
   activeTab: TabType;
@@ -11,11 +12,12 @@ interface AppLayoutProps {
 }
 
 const tabs: { id: TabType; label: string; icon: string; description: string }[] = [
-  { id: 'chat', label: 'Chat', icon: '💬', description: 'Speak with the grimoire' },
+  { id: 'chat', label: 'Chat', icon: '🗣️', description: 'Speak with the grimoire' },
   { id: 'notes', label: 'Notes', icon: '📝', description: 'Inscribe your tales' },
   { id: 'wiki', label: 'Wiki', icon: '📚', description: 'Browse the archives' },
-  { id: 'files', label: 'Files', icon: '📁', description: 'Manage scrolls' },
-  { id: 'imagegen', label: 'ImageGen', icon: '🎨', description: 'Create images' },
+  { id: 'files', label: 'Files', icon: '📂', description: 'Manage scrolls' },
+  { id: 'imagegen', label: 'ImaGen', icon: '🎨', description: 'Create images' },
+  { id: 'prompts', label: 'Prompts', icon: '✨', description: 'Manage image prompts' },
   { id: 'admin', label: 'Admin', icon: '⚙️', description: 'Tavern master' },
 ];
 
@@ -33,7 +35,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       <aside className={`sidebar ${isSidebarOpen ? 'open' : 'collapsed'}`}>
         <div className="sidebar-header">
           <div className="app-brand">
-            <span className="brand-icon">📖</span>
+            <span className="brand-icon">
+              <img src={themeTinyUrl} alt="MegaBook" />
+            </span>
             {isSidebarOpen && (
               <div className="brand-text">
                 <span className="brand-name">MegaBook</span>
@@ -68,7 +72,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             onClick={onSettingsClick}
             title="Settings"
           >
-            <span className="nav-icon">⚙️</span>
+            <span className="nav-icon">S</span>
             {isSidebarOpen && <span className="nav-label">Settings</span>}
           </button>
         </div>

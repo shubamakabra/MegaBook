@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
-import { FileTreeNode, PipelineStatus } from '../types';
+import { PipelineStatus } from '../types';
 import './Layout.css';
 
 interface LayoutProps {

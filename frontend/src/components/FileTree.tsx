@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { FileTreeNode } from '../types';
 import './FileTree.css';
@@ -132,7 +132,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
   selectedFile,
   activeFile 
 }) => {
-  const [trees, setTrees] = useState<Record<string, FileTreeNode>>({});
+  type TreeMap = Record<string, Record<string, FileTreeNode>>;
+  const [trees, setTrees] = useState<TreeMap>({});
   const [activeLayer, setActiveLayer] = useState<string>('all');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['prompts', 'notes', 'wiki']));
   const [isLoading, setIsLoading] = useState(false);
@@ -146,10 +147,10 @@ export const FileTree: React.FC<FileTreeProps> = ({
           api.getFileTree('notes').catch(() => ({})),
           api.getFileTree('wiki').catch(() => ({})),
         ]);
-        setTrees({ prompts, notes, wiki });
+        setTrees({ prompts, notes, wiki } as TreeMap);
       } else {
         const tree = await api.getFileTree(activeLayer);
-        setTrees({ [activeLayer]: tree });
+        setTrees({ [activeLayer]: tree } as TreeMap);
       }
     } catch (error) {
       console.error('Failed to fetch file tree:', error);

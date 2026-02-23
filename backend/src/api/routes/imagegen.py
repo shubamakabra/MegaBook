@@ -259,6 +259,62 @@ async def create_prompt(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.put("/prompts/{prompt_id}")
+async def update_prompt(
+    prompt_id: str,
+    request: CreatePromptRequest,
+    fs: FilesystemService = Depends(get_filesystem),
+    image_service: ImageGenerationService = Depends(get_image_service),
+):
+    """Update an existing prompt template."""
+    try:
+        # Load existing templates
+        template_path = Path(__file__).parent.parent / "templates" / "image-styles" / "templates.json"
+        
+        if not template_path.exists():
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        with open(template_path, "r", encoding="utf-8") as f:
+            templates_data = json.load(f)
+        
+        # Find and update template
+        templates = templates_data.get("templates", [])
+        template_found = False
+        
+        for i, template in enumerate(templates):
+            if template["id"] == prompt_id:
+                templates[i] = {
+                    "id": prompt_id,
+                    "name": request.name,
+                    "category": request.category,
+                    "description": request.description,
+                    "base_prompt": request.base_prompt,
+                    "style_suffix": request.style_suffix or "",
+                    "negative_prompt": request.negative_prompt or "",
+                }
+                template_found = True
+                break
+        
+        if not template_found:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        # Save back to file
+        with open(template_path, "w", encoding="utf-8") as f:
+            json.dump(templates_data, f, indent=2)
+        
+        # Reload templates after updating
+        image_service.reload_templates()
+        
+        return {
+            "success": True,
+            "message": "Prompt updated successfully",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/prompts/{prompt_id}")
 async def delete_prompt(
     prompt_id: str,
