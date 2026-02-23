@@ -4,6 +4,19 @@ import './ChatTab.css';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+// TODO: Implement DM/PLAYER mode toggle
+// - Add UI toggle switch in chat header for "DM Mode" vs "Player Mode"
+// - Store mode preference in localStorage
+// - Send mode to backend with each message so The Grimoire can adjust its tone
+// - DM Mode: Full access to all features, The Grimoire serves the Master
+// - Player Mode: Restricted view, The Grimoire addresses user as player name
+
+// TODO: Implement player name storage
+// - Add player name input field in settings/header when in Player Mode
+// - Store player name in localStorage
+// - Include player name in conversation context for The Grimoire
+// - The Grimoire should use player names when addressing them directly
+
 interface Message {
   id: string;
   type: 'user' | 'ai';

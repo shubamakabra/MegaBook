@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from src.dependencies import get_llm_provider
 from src.core import settings
+from src.utils import CHAT_SYSTEM_PROMPT
 
 router = APIRouter()
 
@@ -62,12 +63,7 @@ class ConversationChatResponse(BaseModel):
     history: List[ChatMessage] = Field(..., description="Full conversation history")
 
 
-# System prompt for the AI assistant
-SYSTEM_PROMPT = """You are a helpful AI assistant for D&D and tabletop RPG campaigns. 
-You maintain conversation context and remember what has been discussed.
-Help the user with worldbuilding, character creation, plot ideas, and campaign planning.
-Be creative, supportive, and knowledgeable about fantasy RPGs.
-When appropriate, reference previous parts of the conversation to provide continuity."""
+
 
 
 @router.post("/conversation", response_model=ConversationChatResponse)
@@ -111,7 +107,7 @@ async def conversation_chat(request: ConversationChatRequest):
         print(f"   [HISTORY] Loaded from file: {len(history)} messages")
     
     # Build messages array with system prompt + history + new message
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
     messages.extend(history)
     messages.append({"role": "user", "content": request.message})
     

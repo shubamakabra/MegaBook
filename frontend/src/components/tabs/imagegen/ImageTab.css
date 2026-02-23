@@ -189,6 +189,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   border: 2px solid transparent;
+  position: relative;
 }
 
 .gallery-thumb:hover {
@@ -210,6 +211,142 @@
   justify-content: center;
   color: var(--color-text-muted);
   font-size: 24px;
+}
+
+.image-number {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 2;
+}
+
+/* Loading and Error States */
+.gallery-thumb.loading {
+  background: var(--color-bg-tertiary);
+  animation: pulse 2s infinite;
+}
+
+.gallery-thumb.error {
+  background: rgba(229, 115, 115, 0.1);
+  border-color: rgba(229, 115, 115, 0.3);
+}
+
+.gallery-thumb.error:hover {
+  border-color: #e57373;
+}
+
+.loading-overlay,
+.error-overlay {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.error-overlay {
+  color: #e57373;
+}
+
+.error-icon {
+  font-size: 24px;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-gold);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Modal Error and Loading States */
+.error-detail,
+.loading-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+  min-width: 400px;
+  text-align: center;
+}
+
+.error-icon-large {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.error-detail h3,
+.loading-detail h3 {
+  margin: 0 0 12px 0;
+  color: var(--color-text-primary);
+  font-size: 18px;
+}
+
+.error-message {
+  color: #e57373;
+  margin: 0 0 20px 0;
+  max-width: 400px;
+}
+
+.error-prompt {
+  background: var(--color-bg-tertiary);
+  padding: 16px;
+  border-radius: 8px;
+  text-align: left;
+  max-width: 400px;
+}
+
+.error-prompt label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.error-prompt p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.spinner-large {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-gold);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+.loading-prompt {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  max-width: 400px;
 }
 
 /* IMAGE MODAL */
@@ -255,10 +392,11 @@
   background: rgba(229, 115, 115, 0.8);
 }
 
-.modal-content img {
+.modal-content > img {
   max-width: 80vw;
   max-height: 70vh;
   display: block;
+  margin: 0 auto;
 }
 
 .modal-info {
@@ -287,4 +425,68 @@
 
 .modal-info button:hover {
   background: var(--color-gold-light);
+}
+
+/* Navigation Arrows */
+.nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.nav-arrow:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: var(--color-gold);
+  color: var(--color-gold);
+}
+
+.nav-prev {
+  left: 20px;
+}
+
+.nav-next {
+  right: 20px;
+}
+
+/* Image Counter */
+.image-counter {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 10;
+}
+
+/* Modal Actions */
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.keyboard-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
 }

@@ -27,7 +27,7 @@ const defaultSettings: Settings = {
 export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'llm' | 'costs' | 'theme'>('llm');
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [currentCost, setCurrentCost] = useState({ nok: 0, usd: 0 });
+  const [currentCost] = useState({ nok: 0, usd: 0 });
 
   useEffect(() => {
     // Load settings from localStorage

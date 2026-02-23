@@ -1,7 +1,7 @@
 """Filesystem API routes."""
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, File, UploadFile
 from pydantic import BaseModel
 
 from src.core import FilesystemService, KnowledgeLayer
@@ -117,12 +117,111 @@ async def write_file(request: WriteFileRequest, fs: FilesystemService = Depends(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    path: str = Query(..., description="Target path for the file"),
+    fs: FilesystemService = Depends(get_filesystem)
+):
+    """Upload a binary file to the repository."""
+    try:
+        content = await file.read()
+        full_path = fs.repo_path / path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.write_bytes(content)
+        return {"success": True, "path": path, "size": len(content)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.delete("/files/{path:path}")
 async def delete_file(path: str, fs: FilesystemService = Depends(get_filesystem)):
     """Delete a file from the repository."""
     try:
         fs.delete_file(path)
         return {"success": True, "path": path}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class RenameRequest(BaseModel):
+    """Rename request model."""
+    old_path: str
+    new_path: str
+
+
+@router.post("/rename")
+async def rename_file(request: RenameRequest, fs: FilesystemService = Depends(get_filesystem)):
+    """Rename or move a file/folder."""
+    try:
+        import shutil
+        old_full_path = fs.repo_path / request.old_path
+        new_full_path = fs.repo_path / request.new_path
+        
+        if not old_full_path.exists():
+            raise HTTPException(status_code=404, detail=f"Source not found: {request.old_path}")
+        
+        if new_full_path.exists():
+            raise HTTPException(status_code=400, detail=f"Destination already exists: {request.new_path}")
+        
+        # Ensure parent directory exists
+        new_full_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        shutil.move(str(old_full_path), str(new_full_path))
+        return {"success": True, "old_path": request.old_path, "new_path": request.new_path}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class CopyRequest(BaseModel):
+    """Copy request model."""
+    source_path: str
+    target_path: str
+
+
+@router.post("/copy")
+async def copy_file(request: CopyRequest, fs: FilesystemService = Depends(get_filesystem)):
+    """Copy a file or folder."""
+    try:
+        import shutil
+        source_full_path = fs.repo_path / request.source_path
+        target_full_path = fs.repo_path / request.target_path
+        
+        if not source_full_path.exists():
+            raise HTTPException(status_code=404, detail=f"Source not found: {request.source_path}")
+        
+        if target_full_path.exists():
+            raise HTTPException(status_code=400, detail=f"Destination already exists: {request.target_path}")
+        
+        # Ensure parent directory exists
+        target_full_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        if source_full_path.is_dir():
+            shutil.copytree(str(source_full_path), str(target_full_path))
+        else:
+            shutil.copy2(str(source_full_path), str(target_full_path))
+        
+        return {"success": True, "source_path": request.source_path, "target_path": request.target_path}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class CreateFolderRequest(BaseModel):
+    """Create folder request model."""
+    path: str
+
+
+@router.post("/mkdir")
+async def create_folder(request: CreateFolderRequest, fs: FilesystemService = Depends(get_filesystem)):
+    """Create a new folder."""
+    try:
+        full_path = fs.repo_path / request.path
+        full_path.mkdir(parents=True, exist_ok=True)
+        return {"success": True, "path": request.path}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

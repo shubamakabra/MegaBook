@@ -48,6 +48,39 @@ class ApiService {
     return response.data;
   }
 
+  async renameFile(oldPath: string, newPath: string) {
+    const response = await this.client.post('/api/filesystem/rename', { old_path: oldPath, new_path: newPath });
+    return response.data;
+  }
+
+  async copyFile(sourcePath: string, targetPath: string) {
+    const response = await this.client.post('/api/filesystem/copy', { source_path: sourcePath, target_path: targetPath });
+    return response.data;
+  }
+
+  async createFolder(path: string) {
+    const response = await this.client.post('/api/filesystem/mkdir', { path });
+    return response.data;
+  }
+
+  async uploadFile(file: File, path: string, onProgress?: (progress: number) => void) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await this.client.post(`/api/filesystem/upload?path=${encodeURIComponent(path)}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: onProgress ? (progressEvent) => {
+        const percentCompleted = progressEvent.total 
+          ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          : 0;
+        onProgress(percentCompleted);
+      } : undefined,
+    });
+    return response.data;
+  }
+
   // Git API
   async getGitStatus() {
     const response = await this.client.get('/api/git/status');
@@ -90,7 +123,7 @@ class ApiService {
     return response.data;
   }
 
-  async uploadFile(file: File, targetSubdir: string = '') {
+  async uploadFileToPipeline(file: File, targetSubdir: string = '') {
     const formData = new FormData();
     formData.append('file', file);
     
@@ -348,6 +381,18 @@ class ApiService {
     negative_prompt?: string;
   }) {
     const response = await this.client.post('/api/imagegen/prompts', data);
+    return response.data;
+  }
+
+  async updateImagePrompt(promptId: string, data: {
+    name: string;
+    category: string;
+    description: string;
+    base_prompt: string;
+    style_suffix?: string;
+    negative_prompt?: string;
+  }) {
+    const response = await this.client.put(`/api/imagegen/prompts/${encodeURIComponent(promptId)}`, data);
     return response.data;
   }
 

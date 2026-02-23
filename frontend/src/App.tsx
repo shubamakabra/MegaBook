@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { AppLayout, TabType } from './components/layout/AppLayout';
 import { SettingsMenu } from './components/layout/SettingsMenu';
 import { ChatTab } from './components/tabs/chat/ChatTab';
@@ -6,6 +6,7 @@ import { NotesTab } from './components/tabs/notes/NotesTab';
 import { WikiTab } from './components/tabs/wiki/WikiTab';
 import { FilesTab } from './components/tabs/files/FilesTab';
 import { ImageTab } from './components/tabs/imagegen/ImageTab';
+import { PromptsTab } from './components/tabs/prompts/PromptsTab';
 import { AdminTab } from './components/tabs/admin/AdminTab';
 import './App.css';
 
@@ -37,12 +38,7 @@ function App() {
       case 'imagegen':
         return <ImageTab />;
       case 'prompts':
-        return (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-            <h2>Work in Progress</h2>
-            <p>Prompt management features coming soon...</p>
-          </div>
-        );
+        return <PromptsTab />;
       case 'admin':
         return <AdminTab />;
       default:

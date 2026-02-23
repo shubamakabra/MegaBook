@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../services/api';
 import './ImageTab.css';
 
@@ -13,26 +13,25 @@ interface PromptTemplate {
 interface GalleryImage {
   id: string;
   image_data?: string;
-  image_path: string;
+  image_path?: string;
   thumbnail_url?: string;
   prompt: string;
   revised_prompt?: string;
-  tokens_used: number;
+  tokens_used?: number;
   timestamp: string;
+  status: 'loading' | 'success' | 'error';
+  error?: string;
 }
 
 export const ImageTab: React.FC = () => {
-  // Prompt selection
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<PromptTemplate | null>(null);
   const [sceneDescription, setSceneDescription] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   
-  // Generation
-  const [isGenerating, setIsGenerating] = useState(false);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
-  const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [activeJobs, setActiveJobs] = useState<number>(0);
 
   useEffect(() => {
     loadPrompts();
@@ -51,7 +50,11 @@ export const ImageTab: React.FC = () => {
   const loadGallery = async () => {
     try {
       const response = await api.getImageGallery(50);
-      setGalleryImages(response.images || []);
+      const images = (response.images || []).map((img: any) => ({
+        ...img,
+        status: 'success' as const,
+      }));
+      setGalleryImages(images);
     } catch (err) {
       console.error('Failed to load gallery:', err);
     }
@@ -67,45 +70,67 @@ export const ImageTab: React.FC = () => {
 
   const handleGenerate = async () => {
     const fullPrompt = buildFullPrompt();
-    if (!fullPrompt.trim()) {
-      setError('Select a style and describe your scene');
-      return;
-    }
+    if (!fullPrompt.trim()) return;
 
-    setIsGenerating(true);
-    setError(null);
+    // Create a loading preview immediately
+    const jobId = Date.now().toString();
+    const loadingImage: GalleryImage = {
+      id: jobId,
+      prompt: fullPrompt,
+      timestamp: new Date().toISOString(),
+      status: 'loading',
+    };
+    
+    setGalleryImages(prev => [loadingImage, ...prev]);
+    setActiveJobs(prev => prev + 1);
 
+    // Start generation in background
     try {
       const result = await api.generateImage({
         prompt: fullPrompt,
+        context_files: [],
         style_template_id: selectedPrompt?.id || undefined,
       });
 
-      if (result.success) {
-        const newImage: GalleryImage = {
-          id: Date.now().toString(),
-          image_data: result.image_data,
-          image_path: result.image_path,
-          prompt: fullPrompt,
-          revised_prompt: result.revised_prompt,
-          tokens_used: result.tokens_used,
-          timestamp: new Date().toISOString(),
-        };
-        setGalleryImages(prev => [newImage, ...prev]);
-        setSelectedImage(newImage);
-      } else {
-        setError(result.error || 'Generation failed');
-      }
+      setGalleryImages(prev => prev.map(img => {
+        if (img.id === jobId) {
+          if (result.success) {
+            return {
+              ...img,
+              image_data: result.image_data,
+              image_path: result.image_path,
+              revised_prompt: result.revised_prompt,
+              tokens_used: result.tokens_used,
+              status: 'success',
+            };
+          } else {
+            return {
+              ...img,
+              status: 'error',
+              error: result.error || 'Generation failed',
+            };
+          }
+        }
+        return img;
+      }));
     } catch (err: any) {
-      setError(err.message || 'Failed to generate');
+      setGalleryImages(prev => prev.map(img => {
+        if (img.id === jobId) {
+          return {
+            ...img,
+            status: 'error',
+            error: err.message || 'Failed to generate',
+          };
+        }
+        return img;
+      }));
     } finally {
-      setIsGenerating(false);
+      setActiveJobs(prev => prev - 1);
     }
   };
 
   const handleDownload = (image: GalleryImage) => {
     if (image.image_data) {
-      // Download from base64
       const link = document.createElement('a');
       link.href = `data:image/png;base64,${image.image_data}`;
       link.download = `megabook_${Date.now()}.png`;
@@ -113,7 +138,6 @@ export const ImageTab: React.FC = () => {
       link.click();
       document.body.removeChild(link);
     } else if (image.thumbnail_url) {
-      // Download from URL
       const link = document.createElement('a');
       link.href = `http://localhost:8000${image.thumbnail_url}`;
       link.download = `megabook_${Date.now()}.png`;
@@ -124,11 +148,64 @@ export const ImageTab: React.FC = () => {
     }
   };
 
+  // Open image modal by index
+  const openImageModal = (index: number) => {
+    setSelectedImageIndex(index);
+  };
+
+  // Close modal
+  const closeModal = () => {
+    setSelectedImageIndex(null);
+  };
+
+  // Navigate to next image (RIGHT arrow = increment index)
+  const goToNextImage = useCallback(() => {
+    if (selectedImageIndex === null || galleryImages.length <= 1) return;
+    // Right arrow = next = increment index
+    const newIndex = (selectedImageIndex + 1) % galleryImages.length;
+    setSelectedImageIndex(newIndex);
+  }, [selectedImageIndex, galleryImages.length]);
+
+  // Navigate to previous image (LEFT arrow = decrement index)
+  const goToPrevImage = useCallback(() => {
+    if (selectedImageIndex === null || galleryImages.length <= 1) return;
+    // Left arrow = previous = decrement index
+    const newIndex = (selectedImageIndex - 1 + galleryImages.length) % galleryImages.length;
+    setSelectedImageIndex(newIndex);
+  }, [selectedImageIndex, galleryImages.length]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (selectedImageIndex === null) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case 'Escape':
+          closeModal();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          goToNextImage();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          goToPrevImage();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImageIndex, goToNextImage, goToPrevImage]);
+
   const promptsByCategory = prompts.reduce((acc, prompt) => {
     if (!acc[prompt.category]) acc[prompt.category] = [];
     acc[prompt.category].push(prompt);
     return acc;
   }, {} as Record<string, PromptTemplate[]>);
+
+  // Get currently selected image
+  const selectedImage = selectedImageIndex !== null ? galleryImages[selectedImageIndex] : null;
 
   return (
     <div className="image-tab-v2">
@@ -172,24 +249,16 @@ export const ImageTab: React.FC = () => {
           value={sceneDescription}
           onChange={(e) => setSceneDescription(e.target.value)}
           placeholder="Describe your scene..."
-          onKeyDown={(e) => e.key === 'Enter' && !isGenerating && handleGenerate()}
+          onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
         />
 
         <button 
           className="generate-btn"
           onClick={handleGenerate}
-          disabled={isGenerating}
         >
-          {isGenerating ? '...' : 'Generate'}
+          {activeJobs > 0 ? `${activeJobs} generating...` : 'Generate'}
         </button>
       </div>
-
-      {error && (
-        <div className="error-toast">
-          {error}
-          <button onClick={() => setError(null)}>X</button>
-        </div>
-      )}
 
       {/* GALLERY */}
       <div className="gallery-section">
@@ -200,18 +269,30 @@ export const ImageTab: React.FC = () => {
               <p className="hint">Select a style, describe your scene, and click Generate</p>
             </div>
           ) : (
-              galleryImages.map((image) => (
+            galleryImages.map((image, index) => (
               <div 
                 key={image.id}
-                className="gallery-thumb"
-                onClick={() => setSelectedImage(image)}
+                className={`gallery-thumb ${image.status}`}
+                onClick={() => openImageModal(index)}
               >
-                {image.image_data ? (
+                <div className="image-number">{index + 1}</div>
+                {image.status === 'loading' && (
+                  <div className="loading-overlay">
+                    <div className="spinner"></div>
+                    <span>Generating...</span>
+                  </div>
+                )}
+                {image.status === 'error' && (
+                  <div className="error-overlay">
+                    <span className="error-icon">⚠️</span>
+                    <span>Failed</span>
+                  </div>
+                )}
+                {image.status === 'success' && image.image_data && (
                   <img src={`data:image/png;base64,${image.image_data}`} alt="" />
-                ) : image.thumbnail_url ? (
+                )}
+                {image.status === 'success' && image.thumbnail_url && (
                   <img src={`http://localhost:8000${image.thumbnail_url}`} alt="" />
-                ) : (
-                  <div className="placeholder">IMG</div>
                 )}
               </div>
             ))
@@ -220,19 +301,77 @@ export const ImageTab: React.FC = () => {
       </div>
 
       {/* IMAGE MODAL */}
-      {selectedImage && (
-        <div className="image-modal" onClick={() => setSelectedImage(null)}>
+      {selectedImage && selectedImageIndex !== null && (
+        <div className="image-modal" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={() => setSelectedImage(null)}>X</button>
-            {selectedImage.image_data ? (
+            {/* Navigation arrows */}
+            {galleryImages.length > 1 && (
+              <>
+                <button 
+                  className="nav-arrow nav-prev" 
+                  onClick={(e) => { e.stopPropagation(); goToPrevImage(); }}
+                  title="Previous image (←)"
+                >
+                  ‹
+                </button>
+                <button 
+                  className="nav-arrow nav-next" 
+                  onClick={(e) => { e.stopPropagation(); goToNextImage(); }}
+                  title="Next image (→)"
+                >
+                  ›
+                </button>
+              </>
+            )}
+            
+            <button className="close-btn" onClick={closeModal} title="Close (Esc)">×</button>
+            
+            {/* Image counter */}
+            {galleryImages.length > 1 && (
+              <div className="image-counter">
+                {selectedImageIndex + 1}/{galleryImages.length}
+              </div>
+            )}
+            
+            {/* Error State */}
+            {selectedImage.status === 'error' && (
+              <div className="error-detail">
+                <span className="error-icon-large">⚠️</span>
+                <h3>Generation Failed</h3>
+                <p className="error-message">{selectedImage.error || 'Unknown error occurred'}</p>
+                <div className="error-prompt">
+                  <label>Prompt:</label>
+                  <p>{selectedImage.prompt}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Loading State */}
+            {selectedImage.status === 'loading' && (
+              <div className="loading-detail">
+                <div className="spinner-large"></div>
+                <h3>Generating Image...</h3>
+                <p className="loading-prompt">{selectedImage.prompt}</p>
+              </div>
+            )}
+            
+            {/* Success State */}
+            {selectedImage.status === 'success' && selectedImage.image_data && (
               <img src={`data:image/png;base64,${selectedImage.image_data}`} alt="" />
-            ) : selectedImage.thumbnail_url ? (
+            )}
+            {selectedImage.status === 'success' && selectedImage.thumbnail_url && (
               <img src={`http://localhost:8000${selectedImage.thumbnail_url}`} alt="" />
-            ) : null}
-            <div className="modal-info">
-              <p className="prompt">{selectedImage.prompt}</p>
-              <button onClick={() => handleDownload(selectedImage)}>Download</button>
-            </div>
+            )}
+            
+            {selectedImage.status === 'success' && (
+              <div className="modal-info">
+                <p className="prompt">{selectedImage.prompt}</p>
+                <div className="modal-actions">
+                  <button onClick={() => handleDownload(selectedImage)}>Download</button>
+                  <span className="keyboard-hint">ESC to close • ← → to navigate</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

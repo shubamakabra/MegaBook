@@ -5,11 +5,10 @@ import './MarkdownEditor.css';
 
 interface MarkdownEditorProps {
   filePath: string | null;
-  layer: string;
   onSave?: () => void;
 }
 
-export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ filePath, layer, onSave }) => {
+export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ filePath, onSave }) => {
   const [content, setContent] = useState('');
   const [originalContent, setOriginalContent] = useState('');
   const [isDirty, setIsDirty] = useState(false);
