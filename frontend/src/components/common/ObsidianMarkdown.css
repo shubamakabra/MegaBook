@@ -1,0 +1,256 @@
+/* ==========================================================================
+   ObsidianMarkdown — Styles for Obsidian-flavored markdown rendering.
+   These styles apply inside the .ob-markdown wrapper and cover:
+   - Wiki-links ([[...]])
+   - Highlights (==text==)
+   - Callouts (> [!type])
+   - Embedded media styling
+   ========================================================================== */
+
+/* Base wrapper — inherits font from parent context */
+.ob-markdown {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text-primary);
+}
+
+/* ---- Headings ---- */
+.ob-markdown h1,
+.ob-markdown h2,
+.ob-markdown h3,
+.ob-markdown h4,
+.ob-markdown h5,
+.ob-markdown h6 {
+  font-family: var(--font-display);
+  color: var(--color-gold);
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+
+.ob-markdown h1 {
+  font-size: 24px;
+  border-bottom: 2px solid rgba(255, 179, 71, 0.3);
+  padding-bottom: 8px;
+}
+
+.ob-markdown h2 {
+  font-size: 20px;
+  border-bottom: 1px solid rgba(255, 179, 71, 0.2);
+  padding-bottom: 6px;
+}
+
+.ob-markdown h3 { font-size: 18px; }
+
+.ob-markdown p { margin-bottom: 12px; }
+
+.ob-markdown ul,
+.ob-markdown ol {
+  margin-bottom: 12px;
+  padding-left: 24px;
+}
+
+.ob-markdown li { margin-bottom: 4px; }
+
+/* ---- Inline code ---- */
+.ob-markdown code {
+  background: rgba(255, 179, 71, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.ob-markdown pre {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.ob-markdown pre code {
+  background: none;
+  padding: 0;
+}
+
+/* ---- Blockquotes (non-callout) ---- */
+.ob-markdown blockquote {
+  border-left: 3px solid var(--color-gold);
+  padding-left: 16px;
+  margin: 16px 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* ---- Links ---- */
+.ob-markdown a {
+  color: var(--color-gold);
+  text-decoration: none;
+}
+
+.ob-markdown a:hover {
+  text-decoration: underline;
+}
+
+/* ---- Tables ---- */
+.ob-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.ob-markdown th,
+.ob-markdown td {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.ob-markdown th {
+  background: rgba(255, 179, 71, 0.1);
+  font-weight: 600;
+}
+
+.ob-markdown tr:nth-child(even) {
+  background: rgba(255, 179, 71, 0.03);
+}
+
+.ob-markdown hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 24px 0;
+}
+
+/* ---- Images (standard + vault-resolved) ---- */
+.ob-markdown img {
+  max-width: 100%;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+/* ---- Task lists ---- */
+.ob-markdown input[type="checkbox"] {
+  margin-right: 6px;
+  accent-color: var(--color-gold);
+}
+
+/* =========================================================================
+   Wiki-links: [[Page]] rendered as styled spans
+   ========================================================================= */
+
+.ob-wikilink {
+  color: var(--color-gold);
+  background: rgba(255, 179, 71, 0.08);
+  padding: 1px 6px;
+  border-radius: 3px;
+  border-bottom: 1px dashed rgba(255, 179, 71, 0.4);
+  cursor: default;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.ob-wikilink:hover {
+  background: rgba(255, 179, 71, 0.15);
+  border-bottom-color: var(--color-gold);
+}
+
+/* =========================================================================
+   Highlights: ==text== rendered as <mark>
+   ========================================================================= */
+
+.ob-markdown mark {
+  background: rgba(255, 235, 59, 0.3);
+  color: inherit;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* =========================================================================
+   Callouts: > [!type] Title
+   ========================================================================= */
+
+.ob-callout {
+  border-left: 4px solid #448aff;
+  border-radius: 4px;
+  background: rgba(68, 138, 255, 0.06);
+  margin: 16px 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.ob-callout-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.ob-callout-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.ob-callout-fold {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.ob-callout-body {
+  padding: 8px 14px 12px;
+}
+
+.ob-callout-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Callout type background tints */
+.ob-callout-note,
+.ob-callout-info,
+.ob-callout-todo    { background: rgba(68, 138, 255, 0.06); }
+.ob-callout-abstract,
+.ob-callout-summary,
+.ob-callout-tldr    { background: rgba(0, 191, 165, 0.06); }
+.ob-callout-tip,
+.ob-callout-hint,
+.ob-callout-important { background: rgba(0, 191, 165, 0.06); }
+.ob-callout-success,
+.ob-callout-check,
+.ob-callout-done    { background: rgba(0, 200, 83, 0.06); }
+.ob-callout-question,
+.ob-callout-help,
+.ob-callout-faq     { background: rgba(255, 171, 0, 0.06); }
+.ob-callout-warning,
+.ob-callout-caution,
+.ob-callout-attention { background: rgba(255, 145, 0, 0.08); }
+.ob-callout-failure,
+.ob-callout-fail,
+.ob-callout-missing { background: rgba(255, 82, 82, 0.06); }
+.ob-callout-danger,
+.ob-callout-error   { background: rgba(255, 23, 68, 0.06); }
+.ob-callout-bug     { background: rgba(255, 82, 82, 0.06); }
+.ob-callout-example  { background: rgba(124, 77, 255, 0.06); }
+.ob-callout-quote,
+.ob-callout-cite    { background: rgba(158, 158, 158, 0.06); }
+
+/* =========================================================================
+   Embedded media
+   ========================================================================= */
+
+.ob-markdown audio {
+  display: block;
+  margin: 12px 0;
+  width: 100%;
+  max-width: 500px;
+}
+
+.ob-markdown video {
+  display: block;
+  margin: 12px 0;
+  max-width: 100%;
+  border-radius: 4px;
+}

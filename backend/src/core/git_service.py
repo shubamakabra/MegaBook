@@ -53,9 +53,9 @@ class GitService:
         # Create .gitignore
         gitignore = repo_path / ".gitignore"
         gitignore.write_text(
-            ".meta/embeddings.sqlite\n"
-            ".meta/processing/\n"
-            ".meta/costs/\n"
+            ".megabook/embeddings.sqlite\n"
+            ".megabook/processing/\n"
+            ".megabook/costs/\n"
             "*.log\n"
             ".env\n"
             "__pycache__/\n"
@@ -64,11 +64,8 @@ class GitService:
             "node_modules/\n"
         )
         
-        # Create initial directories
-        (repo_path / "prompts").mkdir(exist_ok=True)
-        (repo_path / "notes").mkdir(exist_ok=True)
-        (repo_path / "wiki").mkdir(exist_ok=True)
-        (repo_path / ".meta").mkdir(exist_ok=True)
+        # Create .megabook metadata directory only
+        (repo_path / ".megabook").mkdir(exist_ok=True)
         
         # Initial commit
         repo.git.add(".")

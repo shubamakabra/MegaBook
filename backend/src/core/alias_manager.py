@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set
 import re
 
-from src.core.filesystem import FilesystemService, KnowledgeLayer
+from src.core.filesystem import FilesystemService
 
 
 @dataclass
@@ -68,7 +68,6 @@ class AliasManager:
         try:
             content = self.filesystem.read_file(
                 self._aliases_path,
-                layer=KnowledgeLayer.PROMPTS
             )
             data = json.loads(content)
             
@@ -98,7 +97,6 @@ class AliasManager:
         self.filesystem.write_file(
             self._aliases_path,
             json.dumps(data, indent=2),
-            layer=KnowledgeLayer.PROMPTS,
         )
     
     def resolve_name(self, name: str) -> Optional[str]:

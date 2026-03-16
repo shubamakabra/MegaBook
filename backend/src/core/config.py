@@ -16,11 +16,8 @@ class Settings(BaseSettings):
     )
     
     # Repository paths
-    repo_path: Path = Field(default=Path("."), description="Path to the Git repository")
-    prompts_dir: str = Field(default="prompts", description="Prompts directory name")
-    notes_dir: str = Field(default="notes", description="Notes directory name")
-    wiki_dir: str = Field(default="wiki", description="Wiki directory name")
-    meta_dir: str = Field(default=".meta", description="Meta directory name")
+    repo_path: Path = Field(default=Path("."), description="Path to the vault (Obsidian vault or any folder)")
+    meta_dir: str = Field(default=".megabook", description="MegaBook metadata directory name")
     
     # LLM Configuration
     llm_provider: str = Field(default="openai_compatible", description="LLM provider (openai_compatible, azure, mock)")
@@ -46,40 +43,30 @@ class Settings(BaseSettings):
     
     # Embeddings
     embedding_model: str = Field(default="text-embedding-ada-002", description="Embedding model name")
-    vector_db_path: Path = Field(default=Path(".meta/embeddings.sqlite"), description="Vector database path")
+    vector_db_path: Path = Field(default=Path(".megabook/embeddings.sqlite"), description="Vector database path")
     
     # Processing
     atomic_batch_size: int = Field(default=10, description="Number of items to process atomically")
     
     @property
-    def prompts_path(self) -> Path:
-        """Get absolute path to prompts directory."""
-        return self.repo_path / self.prompts_dir
-    
-    @property
-    def notes_path(self) -> Path:
-        """Get absolute path to notes directory."""
-        return self.repo_path / self.notes_dir
-    
-    @property
-    def wiki_path(self) -> Path:
-        """Get absolute path to wiki directory."""
-        return self.repo_path / self.wiki_dir
-    
-    @property
     def meta_path(self) -> Path:
-        """Get absolute path to meta directory."""
+        """Get absolute path to .megabook metadata directory."""
         return self.repo_path / self.meta_dir
-    
+
     @property
     def processing_path(self) -> Path:
         """Get absolute path to processing state directory."""
         return self.meta_path / "processing"
-    
+
     @property
     def costs_path(self) -> Path:
         """Get absolute path to costs tracking directory."""
         return self.meta_path / "costs"
+
+    @property
+    def logs_path(self) -> Path:
+        """Get absolute path to LLM call logs directory."""
+        return self.meta_path / "logs"
 
 
 # Global settings instance

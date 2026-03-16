@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAccess } from '../../contexts/AccessContext';
 import './SettingsMenu.css';
 
 interface Settings {
@@ -25,9 +26,10 @@ const defaultSettings: Settings = {
 };
 
 export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'llm' | 'costs' | 'theme'>('llm');
+  const [activeTab, setActiveTab] = useState<'identity' | 'llm' | 'costs' | 'theme'>('identity');
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [currentCost] = useState({ nok: 0, usd: 0 });
+  const { accessMode, characterName, setAccessMode, setCharacterName } = useAccess();
 
   useEffect(() => {
     // Load settings from localStorage
@@ -58,6 +60,12 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
 
         <div className="settings-tabs">
           <button
+            className={`settings-tab ${activeTab === 'identity' ? 'active' : ''}`}
+            onClick={() => setActiveTab('identity')}
+          >
+            Identity
+          </button>
+          <button
             className={`settings-tab ${activeTab === 'llm' ? 'active' : ''}`}
             onClick={() => setActiveTab('llm')}
           >
@@ -78,6 +86,47 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
         </div>
 
         <div className="settings-content">
+          {activeTab === 'identity' && (
+            <div className="settings-section">
+              <h3>Role</h3>
+              <div className="form-group">
+                <label>Access Mode</label>
+                <div className="identity-role-toggle">
+                  <button
+                    className={`identity-role-btn ${accessMode === 'dm' ? 'active' : ''}`}
+                    onClick={() => setAccessMode('dm')}
+                  >
+                    Dungeon Master
+                  </button>
+                  <button
+                    className={`identity-role-btn ${accessMode === 'player' ? 'active' : ''}`}
+                    onClick={() => setAccessMode('player')}
+                  >
+                    Player
+                  </button>
+                </div>
+                <small>
+                  {accessMode === 'dm'
+                    ? 'Full access to all vault content. The Grimoire serves you as Master.'
+                    : 'Restricted access based on your character. The Grimoire addresses you by name.'}
+                </small>
+              </div>
+
+              {accessMode === 'player' && (
+                <div className="form-group">
+                  <label>Character Name</label>
+                  <input
+                    type="text"
+                    value={characterName}
+                    onChange={e => setCharacterName(e.target.value)}
+                    placeholder="e.g. Thorin, Elara, Raynor..."
+                  />
+                  <small>The Grimoire will address you by this name and restrict vault access to your character's permissions.</small>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'llm' && (
             <>
               <div className="settings-section">

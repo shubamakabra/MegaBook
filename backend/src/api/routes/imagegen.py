@@ -40,7 +40,11 @@ def get_image_service(fs: FilesystemService = Depends(get_filesystem)) -> ImageG
         else:
             print(f"[IMAGE GEN ROUTE] Using Azure endpoint: {endpoint[:50]}...")
         
-        storage_path = Path(settings.repo_path) / "generated-images"
+        # Image storage is always in the app's own directory, NOT the vault.
+        # This ensures generated images persist regardless of which vault is selected.
+        # The app root is backend/ (two levels up from this file's parent package).
+        app_root = Path(__file__).resolve().parent.parent.parent.parent  # -> backend/
+        storage_path = app_root / "generated-images"
         
         _image_service = ImageGenerationService(
             endpoint=endpoint,

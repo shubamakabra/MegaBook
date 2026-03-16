@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import { VaultInfo } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -21,14 +22,14 @@ class ApiService {
   }
 
   // Filesystem API
-  async listFiles(layer?: string) {
-    const params = layer ? { layer } : {};
+  async listFiles(folder?: string) {
+    const params = folder ? { folder } : {};
     const response = await this.client.get('/api/filesystem/files', { params });
     return response.data;
   }
 
-  async getFileTree(layer?: string) {
-    const params = layer ? { layer } : {};
+  async getFileTree(folder?: string) {
+    const params = folder ? { folder } : {};
     const response = await this.client.get('/api/filesystem/tree', { params });
     return response.data;
   }
@@ -422,15 +423,19 @@ class ApiService {
   async generateConversationChat(
     message: string,
     chatId?: string,
-    history?: Array<{ role: string; content: string }>
+    history?: Array<{ role: string; content: string }>,
+    accessMode: string = 'dm',
+    characterName?: string,
   ) {
-    console.log('📝 [ConversationChat] Sending message:', message, 'Chat ID:', chatId);
+    console.log('📝 [ConversationChat] Sending message:', message, 'Chat ID:', chatId, 'Access:', accessMode, characterName || '');
     const startTime = Date.now();
     try {
       const response = await this.client.post('/api/chat/conversation', {
         message,
         chat_id: chatId,
         history: history,
+        access_mode: accessMode,
+        character_name: characterName || null,
       });
       const duration = Date.now() - startTime;
       console.log(`🤖 [ConversationChat] Response received in ${duration}ms:`, response.data);
@@ -438,8 +443,13 @@ class ApiService {
         content: string;
         model: string;
         tokens_used: number;
+        prompt_tokens: number;
+        completion_tokens: number;
+        context_window: number;
         chat_id: string;
         history: Array<{ role: string; content: string }>;
+        tool_usage: Array<{ tool_name: string; arguments: Record<string, any>; result_preview: string }>;
+        agent_iterations: number;
       };
     } catch (error) {
       console.error('❌ [ConversationChat] Error:', error);
@@ -459,14 +469,98 @@ class ApiService {
   }
 
   async deleteChatHistory(chatId: string) {
-    console.log('🗑️ [Chat] Deleting chat history:', chatId);
+    console.log('[Chat] Deleting chat history:', chatId);
     try {
       const response = await this.client.delete(`/api/chat/history/${encodeURIComponent(chatId)}`);
       return response.data;
     } catch (error) {
-      console.error('❌ [Chat] Failed to delete history:', error);
+      console.error('[Chat] Failed to delete history:', error);
       throw error;
     }
+  }
+
+  async listChatSessions() {
+    console.log('[Chat] Loading session list');
+    try {
+      const response = await this.client.get('/api/chat/sessions');
+      return response.data as {
+        sessions: Array<{
+          id: string;
+          title: string;
+          created_at: string;
+          updated_at: string;
+          message_count: number;
+          preview: string;
+        }>;
+      };
+    } catch (error) {
+      console.error('[Chat] Failed to load sessions:', error);
+      throw error;
+    }
+  }
+
+  async renameChatSession(chatId: string, title: string) {
+    console.log('[Chat] Renaming session:', chatId, 'to:', title);
+    try {
+      const response = await this.client.patch(`/api/chat/sessions/${encodeURIComponent(chatId)}`, {
+        title,
+      });
+      return response.data as {
+        id: string;
+        title: string;
+        created_at: string;
+        updated_at: string;
+        message_count: number;
+        preview: string;
+      };
+    } catch (error) {
+      console.error('[Chat] Failed to rename session:', error);
+      throw error;
+    }
+  }
+
+  async compactChat(chatId: string) {
+    console.log('[Chat] Compacting chat:', chatId);
+    const startTime = Date.now();
+    try {
+      const response = await this.client.post('/api/chat/compact', {
+        chat_id: chatId,
+      });
+      const duration = Date.now() - startTime;
+      console.log(`[Chat] Compaction completed in ${duration}ms:`, response.data);
+      return response.data as {
+        new_chat_id: string;
+        old_chat_id: string;
+        summary: string;
+        history: Array<{ role: string; content: string }>;
+        prompt_tokens: number;
+        context_window: number;
+      };
+    } catch (error) {
+      console.error('[Chat] Compaction failed:', error);
+      throw error;
+    }
+  }
+
+  // Vault API
+  async getVault(): Promise<VaultInfo> {
+    const response = await this.client.get('/api/vault');
+    return response.data;
+  }
+
+  async setVault(path: string): Promise<VaultInfo> {
+    const response = await this.client.post('/api/vault', { path });
+    return response.data;
+  }
+
+  async openVaultInExplorer(): Promise<{ status: string; path: string }> {
+    const response = await this.client.post('/api/vault/open-explorer');
+    return response.data;
+  }
+
+  async browseForVault(): Promise<{ path: string | null; cancelled: boolean }> {
+    const response = await this.client.post('/api/vault/browse');
+    return response.data;
   }
 }
 

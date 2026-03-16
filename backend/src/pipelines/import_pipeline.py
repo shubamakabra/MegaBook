@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.core.filesystem import FilesystemService, KnowledgeLayer
+from src.core.filesystem import FilesystemService
 from src.pipelines.base import Pipeline, PipelineResult
 
 
@@ -123,7 +123,6 @@ class ImportPipeline(Pipeline[ImportResult]):
             self.filesystem.write_file(
                 item.target_path,
                 item.content,
-                layer=KnowledgeLayer.PROMPTS,
             )
             
             return {

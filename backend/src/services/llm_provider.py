@@ -5,8 +5,11 @@ the Azure AI Foundry provider as the initial implementation.
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, TypeVar, Generic
+from typing import Any, Dict, List, Optional, TypeVar, Generic, TYPE_CHECKING
 from enum import Enum
+
+if TYPE_CHECKING:
+    from src.services.llm_call_logger import LLMCallLogger
 
 
 class ProviderType(Enum):
@@ -36,12 +39,34 @@ class UsageInfo:
 
 
 @dataclass
+class ToolCall:
+    """A single tool call from the LLM."""
+    id: str
+    function_name: str
+    arguments: str  # JSON string — caller must parse
+
+
+@dataclass
 class LLMResponse:
     """Response from an LLM provider."""
     content: str
     usage: UsageInfo
     model: str
     raw_response: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class ChatCompletionResult:
+    """Rich result from a chat completion that may contain tool calls.
+
+    Used by the agent loop. If `tool_calls` is non-empty the LLM is
+    requesting tool execution rather than returning final text.
+    """
+    content: Optional[str]
+    tool_calls: List[ToolCall]
+    usage: UsageInfo
+    model: str
+    finish_reason: str  # "stop", "tool_calls", "length", etc.
 
 
 T = TypeVar("T")
@@ -68,6 +93,11 @@ class LLMProvider(ABC):
         """
         self.model = model
         self.config = kwargs
+        self._logger: Optional["LLMCallLogger"] = None
+    
+    def set_logger(self, logger: "LLMCallLogger") -> None:
+        """Attach a call logger to this provider."""
+        self._logger = logger
     
     @abstractmethod
     async def generate_text(

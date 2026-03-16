@@ -15,6 +15,11 @@ def set_services(services: dict) -> None:
     _services = services
 
 
+def get_services() -> dict:
+    """Get the global services dictionary (mutable reference)."""
+    return _services
+
+
 def get_filesystem() -> Optional[FilesystemService]:
     """Get filesystem service instance."""
     return _services.get("filesystem")

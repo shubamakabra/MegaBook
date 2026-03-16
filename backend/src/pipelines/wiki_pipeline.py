@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.core.filesystem import FilesystemService, KnowledgeLayer
+from src.core.filesystem import FilesystemService
 from src.pipelines.base import Pipeline, PipelineResult
 from src.services.llm_provider import LLMProvider
 from src.services.cost_tracking import CostTrackingService
@@ -90,7 +90,7 @@ class WikiGenerationPipeline(Pipeline[WikiGenerationResult]):
                 notes_to_process.append({"path": path, "content": content})
         else:
             # Get all notes
-            all_notes = self.filesystem.list_files(layer=KnowledgeLayer.NOTES)
+            all_notes = self.filesystem.list_files(folder="notes")
             notes_to_process = []
             for note_info in all_notes:
                 content = self.filesystem.read_file(note_info.relative_path)
@@ -137,7 +137,6 @@ class WikiGenerationPipeline(Pipeline[WikiGenerationResult]):
         self.filesystem.write_file(
             wiki_page.wiki_path,
             wiki_page.content,
-            layer=KnowledgeLayer.WIKI,
         )
         
         return {

@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { api } from '../../../services/api';
+import { VaultInfo } from '../../../types';
 import { FilePreview, getFileType, isPreviewable, getFileIcon, formatSize } from '../../common';
 import './FilesTab.css';
 
@@ -9,13 +10,6 @@ interface FileItem {
   type: 'file' | 'folder';
   path: string;
   children?: FileItem[];
-  includeInRag?: boolean;
-}
-
-interface ColumnData {
-  items: FileItem[];
-  selectedPath: string | null;
-  title: string;
 }
 
 // Transform backend file tree to FileItem structure
@@ -28,75 +22,292 @@ const transformFileTree = (tree: any[]): FileItem[] => {
   }));
 };
 
-// Helper to find folder contents recursively
-const findFolderContents = (items: FileItem[], path: string): FileItem[] | null => {
+// Sort: folders first, then alphabetical
+const sortItems = (items: FileItem[]): FileItem[] => {
+  return [...items].sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
+};
+
+// Recursively filter tree items by search query
+const filterTreeItems = (items: FileItem[], query: string): FileItem[] => {
+  if (!query.trim()) return items;
+  const lowerQuery = query.toLowerCase();
+  const results: FileItem[] = [];
   for (const item of items) {
-    if (item.path === path && item.type === 'folder' && item.children) {
-      return item.children;
+    const nameMatches = item.name.toLowerCase().includes(lowerQuery);
+    if (item.type === 'folder' && item.children) {
+      const filteredChildren = filterTreeItems(item.children, query);
+      if (nameMatches || filteredChildren.length > 0) {
+        results.push({ ...item, children: filteredChildren.length > 0 ? filteredChildren : item.children });
+      }
+    } else if (nameMatches) {
+      results.push(item);
     }
+  }
+  return results;
+};
+
+// Find an item in the tree by path
+const findItemByPath = (items: FileItem[], path: string): FileItem | null => {
+  for (const item of items) {
+    if (item.path === path) return item;
     if (item.children) {
-      const found = findFolderContents(item.children, path);
+      const found = findItemByPath(item.children, path);
       if (found) return found;
     }
   }
   return null;
 };
 
+// Get the parent path of a given path
+const getParentPath = (path: string): string => {
+  const lastSlash = path.lastIndexOf('/');
+  return lastSlash > 0 ? path.substring(0, lastSlash) : '';
+};
+
+// ============================================================================
+// TreeItem component — renders a single node with expand/collapse
+// ============================================================================
+interface TreeItemProps {
+  item: FileItem;
+  depth: number;
+  expandedPaths: Set<string>;
+  selectedPath: string | null;
+  renamingPath: string | null;
+  renameValue: string;
+  creatingFolderInPath: string | null;
+  newFolderName: string;
+  searchQuery: string;
+  onToggleExpand: (path: string) => void;
+  onSelect: (item: FileItem) => void;
+  onContextMenu: (e: React.MouseEvent, item: FileItem) => void;
+  onRenameChange: (value: string) => void;
+  onRenameSubmit: () => void;
+  onRenameCancel: () => void;
+  onNewFolderNameChange: (value: string) => void;
+  onCreateFolderSubmit: () => void;
+  onCreateFolderCancel: () => void;
+  onDragStart: (e: React.DragEvent, item: FileItem) => void;
+  onDragEnd: () => void;
+  draggingItem: FileItem | null;
+}
+
+const TreeItem: React.FC<TreeItemProps> = ({
+  item, depth, expandedPaths, selectedPath, renamingPath, renameValue,
+  creatingFolderInPath, newFolderName, searchQuery,
+  onToggleExpand, onSelect, onContextMenu,
+  onRenameChange, onRenameSubmit, onRenameCancel,
+  onNewFolderNameChange, onCreateFolderSubmit, onCreateFolderCancel,
+  onDragStart, onDragEnd, draggingItem,
+}) => {
+  const isExpanded = expandedPaths.has(item.path);
+  const isSelected = selectedPath === item.path;
+  const isRenaming = renamingPath === item.path;
+  const isDragging = draggingItem?.path === item.path;
+  const isFolder = item.type === 'folder';
+  const isCreatingFolderHere = creatingFolderInPath === item.path;
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isFolder) {
+      onToggleExpand(item.path);
+    }
+    onSelect(item);
+  };
+
+  const getItemIcon = () => {
+    if (isFolder) return isExpanded ? '📂' : '📁';
+    return getFileIcon(getFileType(item.name));
+  };
+
+  const children = isFolder && item.children ? sortItems(item.children) : [];
+
+  return (
+    <>
+      <div
+        className={`tree-item ${isSelected ? 'selected' : ''} ${isFolder ? 'folder' : 'file'} ${isDragging ? 'dragging' : ''} ${isPreviewable(item.name) ? 'previewable' : ''}`}
+        style={{ paddingLeft: `${12 + depth * 18}px` }}
+        onClick={handleClick}
+        onContextMenu={(e) => onContextMenu(e, item)}
+        draggable={!isRenaming}
+        onDragStart={(e) => onDragStart(e, item)}
+        onDragEnd={onDragEnd}
+      >
+        {isFolder && (
+          <span className={`tree-chevron ${isExpanded ? 'expanded' : ''}`}>&#9656;</span>
+        )}
+        {!isFolder && <span className="tree-chevron-spacer" />}
+        <span className="item-icon">{getItemIcon()}</span>
+
+        {isRenaming ? (
+          <input
+            type="text"
+            className="rename-input"
+            value={renameValue}
+            onChange={(e) => onRenameChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onRenameSubmit();
+              if (e.key === 'Escape') onRenameCancel();
+            }}
+            onBlur={onRenameCancel}
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="item-name">{item.name}</span>
+        )}
+
+        {item.type === 'file' && isPreviewable(item.name) && (
+          <span className="item-preview-indicator">&#128065;</span>
+        )}
+      </div>
+
+      {/* Expanded children */}
+      {isFolder && isExpanded && (
+        <>
+          {children.map(child => (
+            <TreeItem
+              key={child.path}
+              item={child}
+              depth={depth + 1}
+              expandedPaths={expandedPaths}
+              selectedPath={selectedPath}
+              renamingPath={renamingPath}
+              renameValue={renameValue}
+              creatingFolderInPath={creatingFolderInPath}
+              newFolderName={newFolderName}
+              searchQuery={searchQuery}
+              onToggleExpand={onToggleExpand}
+              onSelect={onSelect}
+              onContextMenu={onContextMenu}
+              onRenameChange={onRenameChange}
+              onRenameSubmit={onRenameSubmit}
+              onRenameCancel={onRenameCancel}
+              onNewFolderNameChange={onNewFolderNameChange}
+              onCreateFolderSubmit={onCreateFolderSubmit}
+              onCreateFolderCancel={onCreateFolderCancel}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              draggingItem={draggingItem}
+            />
+          ))}
+
+          {/* Inline new-folder input */}
+          {isCreatingFolderHere && (
+            <div className="tree-item creating-folder" style={{ paddingLeft: `${12 + (depth + 1) * 18}px` }}>
+              <span className="item-icon">&#128193;</span>
+              <input
+                type="text"
+                className="rename-input"
+                value={newFolderName}
+                onChange={(e) => onNewFolderNameChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onCreateFolderSubmit();
+                  if (e.key === 'Escape') onCreateFolderCancel();
+                }}
+                onBlur={onCreateFolderCancel}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+                placeholder="Folder name..."
+              />
+            </div>
+          )}
+
+          {children.length === 0 && !isCreatingFolderHere && (
+            <div className="tree-empty" style={{ paddingLeft: `${12 + (depth + 1) * 18}px` }}>
+              Empty folder
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+};
+
+// ============================================================================
+// FilesTab — main component
+// ============================================================================
 export const FilesTab: React.FC = () => {
-  // State for file tree from backend
+  // Vault state
+  const [vaultInfo, setVaultInfo] = useState<VaultInfo | null>(null);
+  const [vaultLoading, setVaultLoading] = useState(true);
+  const [vaultPathInput, setVaultPathInput] = useState('');
+  const [vaultError, setVaultError] = useState<string | null>(null);
+  const [settingVault, setSettingVault] = useState(false);
+  const [browsingVault, setBrowsingVault] = useState(false);
+
+  // File tree state
+  const [allItems, setAllItems] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // State for three columns
-  const [columns, setColumns] = useState<ColumnData[]>([
-    { items: [], selectedPath: null, title: 'Root' },
-    { items: [], selectedPath: null, title: '' },
-    { items: [], selectedPath: null, title: '' }
-  ]);
 
-
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
+  // Tree interaction state
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [totalSize, setTotalSize] = useState('0 KB');
-  
-  // Rename state
-  const [renamingItem, setRenamingItem] = useState<FileItem | null>(null);
+
+  // Context menu
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem } | null>(null);
+
+  // Rename
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  
-  // Create folder state
-  const [creatingFolderColumn, setCreatingFolderColumn] = useState<number | null>(null);
+
+  // Create folder
+  const [creatingFolderInPath, setCreatingFolderInPath] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
-  
-  // Upload state
-  const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+
+  // Drag
+  const [draggingItem, setDraggingItem] = useState<FileItem | null>(null);
+  const [dragOverTree, setDragOverTree] = useState(false);
+
+  // Upload
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Search/filter state
+  // Search
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Preview panel state
+  // Preview
   const [previewItem, setPreviewItem] = useState<FileItem | null>(null);
   const [previewContent, setPreviewContent] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [showPreview, setShowPreview] = useState(true);
 
-  // Load file tree from backend
+  // Filtered tree
+  const displayItems = useMemo(
+    () => sortItems(filterTreeItems(allItems, searchQuery)),
+    [allItems, searchQuery]
+  );
+
+  // Auto-expand folders when searching
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const pathsToExpand = new Set<string>();
+      const collectPaths = (items: FileItem[]) => {
+        for (const item of items) {
+          if (item.type === 'folder' && item.children) {
+            pathsToExpand.add(item.path);
+            collectPaths(item.children);
+          }
+        }
+      };
+      collectPaths(displayItems);
+      setExpandedPaths(pathsToExpand);
+    }
+  }, [searchQuery, displayItems]);
+
+  // ---- Data loading ----
+
   const loadFileTree = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Get file tree from backend
       const treeData = await api.getFileTree();
-      const transformedTree = transformFileTree(treeData);
-      
-      // Set first column to show root items
-      setColumns([
-        { items: transformedTree, selectedPath: null, title: 'Root' },
-        { items: [], selectedPath: null, title: '' },
-        { items: [], selectedPath: null, title: '' }
-      ]);
+      const transformed = transformFileTree(treeData);
+      setAllItems(transformed);
 
-      // Get total file info
       const files = await api.listFiles();
       const totalBytes = files.reduce((sum: number, f: any) => sum + (f.size || 0), 0);
       setTotalSize(formatSize(totalBytes));
@@ -108,51 +319,104 @@ export const FilesTab: React.FC = () => {
     }
   }, []);
 
-  // Note: formatSize is imported from common/FilePreview
+  // ---- Vault management ----
+
+  const loadVaultInfo = useCallback(async () => {
+    setVaultLoading(true);
+    setVaultError(null);
+    try {
+      const info = await api.getVault();
+      setVaultInfo(info);
+      return info;
+    } catch (err: any) {
+      console.error('Failed to load vault info:', err);
+      setVaultError(err.message || 'Failed to load vault info');
+      return null;
+    } finally {
+      setVaultLoading(false);
+    }
+  }, []);
+
+  const handleSetVault = useCallback(async () => {
+    if (!vaultPathInput.trim()) return;
+    setSettingVault(true);
+    setVaultError(null);
+    try {
+      const info = await api.setVault(vaultPathInput.trim());
+      setVaultInfo(info);
+      setVaultPathInput('');
+      loadFileTree();
+    } catch (err: any) {
+      console.error('Failed to set vault:', err);
+      setVaultError(err.response?.data?.detail || err.message || 'Failed to set vault path');
+    } finally {
+      setSettingVault(false);
+    }
+  }, [vaultPathInput, loadFileTree]);
+
+  const handleOpenExplorer = useCallback(async () => {
+    try {
+      await api.openVaultInExplorer();
+    } catch (err: any) {
+      console.error('Failed to open explorer:', err);
+      alert('Failed to open file explorer: ' + (err.response?.data?.detail || err.message));
+    }
+  }, []);
+
+  const handleBrowseVault = useCallback(async () => {
+    setBrowsingVault(true);
+    setVaultError(null);
+    try {
+      const result = await api.browseForVault();
+      if (!result.cancelled && result.path) {
+        setVaultPathInput(result.path);
+      }
+    } catch (err: any) {
+      console.error('Failed to browse for vault:', err);
+      setVaultError(err.response?.data?.detail || err.message || 'Failed to open folder dialog');
+    } finally {
+      setBrowsingVault(false);
+    }
+  }, []);
+
+  const vaultConnected = vaultInfo?.path && vaultInfo?.exists;
 
   // Initial load
   useEffect(() => {
-    loadFileTree();
-  }, [loadFileTree]);
-
-  // Handle folder/file click
-  const handleItemClick = useCallback(async (item: FileItem, columnIndex: number) => {
-    setColumns(prev => {
-      const newColumns = [...prev];
-      
-      // Update current column selection
-      newColumns[columnIndex] = {
-        ...newColumns[columnIndex],
-        selectedPath: item.path
-      };
-
-      // If it's a folder, populate next column
-      if (item.type === 'folder' && item.children && columnIndex < 2) {
-        newColumns[columnIndex + 1] = {
-          items: item.children,
-          selectedPath: null,
-          title: item.name
-        };
-        // Clear subsequent columns
-        for (let i = columnIndex + 2; i < 3; i++) {
-          newColumns[i] = { items: [], selectedPath: null, title: '' };
-        }
-        // Clear preview when navigating folders
-        setPreviewItem(null);
-        setPreviewContent('');
+    const init = async () => {
+      const info = await loadVaultInfo();
+      if (info?.path && info?.exists) {
+        loadFileTree();
+      } else {
+        setLoading(false);
       }
+    };
+    init();
+  }, [loadVaultInfo, loadFileTree]);
 
-        return newColumns;
+  // ---- Tree interaction ----
+
+  const handleToggleExpand = useCallback((path: string) => {
+    setExpandedPaths(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
     });
+  }, []);
 
-    // If it's a previewable file, load and show preview
+  const handleSelect = useCallback(async (item: FileItem) => {
+    setSelectedPath(item.path);
+    setContextMenu(null);
+
     if (item.type === 'file' && isPreviewable(item.name)) {
       setPreviewItem(item);
       setPreviewLoading(true);
-      
       try {
         const fileType = getFileType(item.name);
-        // Only load content for text/markdown files
         if (fileType === 'markdown' || fileType === 'text') {
           const response = await api.readFile(item.path);
           setPreviewContent(response.content || '');
@@ -166,71 +430,45 @@ export const FilesTab: React.FC = () => {
         setPreviewLoading(false);
       }
     }
-
-    // Close context menu
-    setContextMenu(null);
   }, []);
 
-  // Handle context menu (right-click)
+  // ---- Context menu ----
+
   const handleContextMenu = useCallback((e: React.MouseEvent, item: FileItem) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, item });
   }, []);
 
-  // Close context menu
-  const closeContextMenu = useCallback(() => {
-    setContextMenu(null);
-  }, []);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
-  // Check if file can be opened in notes
   const canOpenInNotes = (item: FileItem): boolean => {
     return item.type === 'file' && (item.name.endsWith('.md') || item.name.endsWith('.txt'));
   };
 
-  // Context menu actions
   const handleOpenFile = async () => {
-    if (contextMenu?.item && canOpenInNotes(contextMenu.item)) {
-      console.log('Opening file in Notes:', contextMenu.item.path);
-      try {
-        const response = await api.readFile(contextMenu.item.path);
-        // Emit custom event for NotesTab to listen to
-        window.dispatchEvent(new CustomEvent('openFileInNotes', {
-          detail: {
-            path: contextMenu.item.path,
-            name: contextMenu.item.name,
-            content: response.content || ''
-          }
-        }));
-      } catch (err: any) {
-        alert('Failed to open file: ' + err.message);
-      }
-    }
-    closeContextMenu();
-  };
-
-  const handleOpenInSplit = () => {
-    if (contextMenu?.item) {
-      console.log('Opening file in split view:', contextMenu.item.path);
-      alert(`Opening ${contextMenu.item.path} in split view (TODO)`);
+    if (!contextMenu?.item || !canOpenInNotes(contextMenu.item)) { closeContextMenu(); return; }
+    try {
+      const response = await api.readFile(contextMenu.item.path);
+      window.dispatchEvent(new CustomEvent('openFileInNotes', {
+        detail: { path: contextMenu.item.path, name: contextMenu.item.name, content: response.content || '' }
+      }));
+    } catch (err: any) {
+      alert('Failed to open file: ' + err.message);
     }
     closeContextMenu();
   };
 
   const handleCopyPath = () => {
-    if (contextMenu?.item) {
-      navigator.clipboard.writeText(contextMenu.item.path);
-    }
+    if (contextMenu?.item) navigator.clipboard.writeText(contextMenu.item.path);
     closeContextMenu();
   };
 
   const handleDownload = async () => {
     if (contextMenu?.item && contextMenu.item.type === 'file') {
       try {
-        // Use the download endpoint
         const response = await fetch(`/api/filesystem/download/${encodeURIComponent(contextMenu.item.path)}`);
         if (!response.ok) throw new Error('Download failed');
-        
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -250,19 +488,15 @@ export const FilesTab: React.FC = () => {
   const handleCopy = async () => {
     if (contextMenu?.item) {
       try {
-        // Generate copy name (e.g., "file.txt" -> "file (copy).txt")
         const item = contextMenu.item;
         const lastDotIndex = item.name.lastIndexOf('.');
         const baseName = lastDotIndex > 0 ? item.name.substring(0, lastDotIndex) : item.name;
         const extension = lastDotIndex > 0 ? item.name.substring(lastDotIndex) : '';
         const copyName = `${baseName} (copy)${extension}`;
-        
-        // Get parent path
-        const parentPath = item.path.substring(0, item.path.lastIndexOf('/'));
+        const parentPath = getParentPath(item.path);
         const targetPath = parentPath ? `${parentPath}/${copyName}` : copyName;
-        
         await api.copyFile(item.path, targetPath);
-        await loadFileTree(); // Refresh
+        await loadFileTree();
       } catch (err: any) {
         alert('Failed to copy: ' + err.message);
       }
@@ -270,15 +504,20 @@ export const FilesTab: React.FC = () => {
     closeContextMenu();
   };
 
-  const handleDeleteFile = async () => {
-    if (contextMenu?.item && contextMenu.item.type === 'file') {
-      if (confirm(`Delete ${contextMenu.item.name}?`)) {
-        try {
-          await api.deleteFile(contextMenu.item.path);
-          await loadFileTree(); // Refresh
-        } catch (err: any) {
-          alert('Failed to delete file: ' + err.message);
+  const handleDeleteItem = async () => {
+    if (!contextMenu?.item) { closeContextMenu(); return; }
+    const item = contextMenu.item;
+    if (confirm(`Delete ${item.name}?`)) {
+      try {
+        await api.deleteFile(item.path);
+        if (selectedPath === item.path) {
+          setSelectedPath(null);
+          setPreviewItem(null);
+          setPreviewContent('');
         }
+        await loadFileTree();
+      } catch (err: any) {
+        alert('Failed to delete: ' + err.message);
       }
     }
     closeContextMenu();
@@ -286,82 +525,110 @@ export const FilesTab: React.FC = () => {
 
   const handleStartRename = () => {
     if (contextMenu?.item) {
-      setRenamingItem(contextMenu.item);
+      setRenamingPath(contextMenu.item.path);
       setRenameValue(contextMenu.item.name);
     }
     closeContextMenu();
   };
 
   const handleRenameSubmit = async () => {
-    if (renamingItem && renameValue && renameValue !== renamingItem.name) {
-      try {
-        // Get parent path
-        const parentPath = renamingItem.path.substring(0, renamingItem.path.lastIndexOf('/'));
-        const newPath = parentPath ? `${parentPath}/${renameValue}` : renameValue;
-        
-        await api.renameFile(renamingItem.path, newPath);
-        await loadFileTree(); // Refresh
-      } catch (err: any) {
-        alert('Failed to rename: ' + err.message);
-      }
+    if (!renamingPath || !renameValue) { handleRenameCancel(); return; }
+    const item = findItemByPath(allItems, renamingPath);
+    if (!item || renameValue === item.name) { handleRenameCancel(); return; }
+    try {
+      const parentPath = getParentPath(item.path);
+      const newPath = parentPath ? `${parentPath}/${renameValue}` : renameValue;
+      await api.renameFile(item.path, newPath);
+      await loadFileTree();
+    } catch (err: any) {
+      alert('Failed to rename: ' + err.message);
     }
-    setRenamingItem(null);
+    setRenamingPath(null);
     setRenameValue('');
   };
 
   const handleRenameCancel = () => {
-    setRenamingItem(null);
+    setRenamingPath(null);
     setRenameValue('');
   };
 
-  const handleStartCreateFolder = (columnIndex: number) => {
-    setCreatingFolderColumn(columnIndex);
+  // ---- Create folder ----
+
+  const handleStartCreateFolder = () => {
+    // Create folder inside the currently selected folder, or root
+    let parentPath = '';
+    if (selectedPath) {
+      const item = findItemByPath(allItems, selectedPath);
+      if (item?.type === 'folder') {
+        parentPath = item.path;
+        // Ensure the parent is expanded so user sees the input
+        setExpandedPaths(prev => new Set(prev).add(parentPath));
+      } else {
+        parentPath = getParentPath(selectedPath);
+      }
+    }
+    setCreatingFolderInPath(parentPath || '__root__');
     setNewFolderName('');
   };
 
   const handleCreateFolderSubmit = async () => {
-    if (creatingFolderColumn !== null && newFolderName.trim()) {
-      try {
-        // Determine parent path based on column
-        let parentPath = '';
-        if (creatingFolderColumn === 0) {
-          // Root level - need to determine which layer
-          parentPath = '';
-        } else {
-          // Get the selected folder from previous column
-          const prevColumn = columns[creatingFolderColumn - 1];
-          if (prevColumn.selectedPath) {
-            parentPath = prevColumn.selectedPath;
-          }
-        }
-        
-        const newPath = parentPath ? `${parentPath}/${newFolderName}` : newFolderName;
-        await api.createFolder(newPath);
-        await loadFileTree(); // Refresh
-      } catch (err: any) {
-        alert('Failed to create folder: ' + err.message);
-      }
+    if (creatingFolderInPath === null || !newFolderName.trim()) { handleCreateFolderCancel(); return; }
+    try {
+      const parent = creatingFolderInPath === '__root__' ? '' : creatingFolderInPath;
+      const newPath = parent ? `${parent}/${newFolderName}` : newFolderName;
+      await api.createFolder(newPath);
+      await loadFileTree();
+    } catch (err: any) {
+      alert('Failed to create folder: ' + err.message);
     }
-    setCreatingFolderColumn(null);
+    setCreatingFolderInPath(null);
     setNewFolderName('');
   };
 
   const handleCreateFolderCancel = () => {
-    setCreatingFolderColumn(null);
+    setCreatingFolderInPath(null);
     setNewFolderName('');
   };
 
-  // Upload handlers
-  const getColumnPath = (columnIndex: number): string => {
-    if (columnIndex === 0) {
-      return '';
+  // ---- Upload ----
+
+  /** Get the folder path to upload into, based on current selection. */
+  const getCurrentUploadTarget = useCallback((): string => {
+    if (!selectedPath) return '';
+    const item = findItemByPath(allItems, selectedPath);
+    if (!item) return '';
+    return item.type === 'folder' ? item.path : getParentPath(item.path);
+  }, [selectedPath, allItems]);
+
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const parentPath = getCurrentUploadTarget();
+
+    for (const file of Array.from(files)) {
+      const filePath = parentPath ? `${parentPath}/${file.name}` : file.name;
+      try {
+        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+        await api.uploadFile(file, filePath, (progress) => {
+          setUploadProgress(prev => ({ ...prev, [file.name]: progress }));
+        });
+        setUploadProgress(prev => {
+          const next = { ...prev };
+          delete next[file.name];
+          return next;
+        });
+      } catch (err: any) {
+        alert(`Failed to upload ${file.name}: ${err.message}`);
+        setUploadProgress(prev => {
+          const next = { ...prev };
+          delete next[file.name];
+          return next;
+        });
+      }
     }
-    const prevColumn = columns[columnIndex - 1];
-    return prevColumn.selectedPath || '';
+    await loadFileTree();
   };
 
-  // Move file handlers
-  const [draggingItem, setDraggingItem] = useState<FileItem | null>(null);
+  // ---- Drag and drop (file move + external upload) ----
 
   const handleDragStart = (e: React.DragEvent, item: FileItem) => {
     e.stopPropagation();
@@ -370,165 +637,160 @@ export const FilesTab: React.FC = () => {
     e.dataTransfer.setData('text/plain', item.path);
   };
 
-  const handleDragEnd = () => {
-    setDraggingItem(null);
-  };
+  const handleDragEnd = () => setDraggingItem(null);
 
-  const handleMoveDrop = async (e: React.DragEvent, targetColumnIndex: number) => {
+  const handleTreeDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragOverColumn(null);
+    setDragOverTree(true);
+  };
 
-    const draggedPath = e.dataTransfer.getData('text/plain');
-    if (!draggedPath || !draggingItem) return;
+  const handleTreeDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverTree(false);
+  };
 
-    const targetPath = getColumnPath(targetColumnIndex);
-    
-    // Don't move if dropping in same location
-    const currentParent = draggingItem.path.substring(0, draggingItem.path.lastIndexOf('/'));
-    if (currentParent === targetPath) {
+  const handleTreeDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverTree(false);
+
+    if (draggingItem) {
+      // Internal move — drop into current selected folder or root
+      const targetFolder = getCurrentUploadTarget();
+      const currentParent = getParentPath(draggingItem.path);
+      if (currentParent !== targetFolder) {
+        const newPath = targetFolder ? `${targetFolder}/${draggingItem.name}` : draggingItem.name;
+        try {
+          await api.renameFile(draggingItem.path, newPath);
+          await loadFileTree();
+        } catch (err: any) {
+          alert('Failed to move: ' + err.message);
+        }
+      }
       setDraggingItem(null);
-      return;
+    } else if (e.dataTransfer.files.length > 0) {
+      // External file upload
+      await handleFileUpload(e.dataTransfer.files);
     }
-
-    const itemName = draggingItem.name;
-    const newPath = targetPath ? `${targetPath}/${itemName}` : itemName;
-
-    try {
-      await api.renameFile(draggedPath, newPath);
-      await loadFileTree(); // Refresh
-    } catch (err: any) {
-      alert('Failed to move: ' + err.message);
-    }
-    setDraggingItem(null);
   };
 
-  // Get current path from columns for breadcrumb
-  const getCurrentPath = (): string => {
-    // Find the last column with a selected path
-    for (let i = columns.length - 1; i >= 0; i--) {
-      if (columns[i].selectedPath) {
-        return columns[i].selectedPath!;
-      }
-    }
-    return '';
-  };
+  // ---- Breadcrumbs ----
 
-  // Build breadcrumb items from current path
   const buildBreadcrumbs = (): { name: string; path: string }[] => {
-    const currentPath = getCurrentPath();
-    if (!currentPath) return [{ name: 'Root', path: '' }];
-    
-    const parts = currentPath.split('/');
-    const breadcrumbs: { name: string; path: string }[] = [{ name: 'Root', path: '' }];
-    
-    let accumulatedPath = '';
+    if (!selectedPath) return [{ name: 'Root', path: '' }];
+    const parts = selectedPath.split('/');
+    const crumbs: { name: string; path: string }[] = [{ name: 'Root', path: '' }];
+    let accumulated = '';
     for (const part of parts) {
-      accumulatedPath = accumulatedPath ? `${accumulatedPath}/${part}` : part;
-      breadcrumbs.push({ name: part, path: accumulatedPath });
+      accumulated = accumulated ? `${accumulated}/${part}` : part;
+      crumbs.push({ name: part, path: accumulated });
     }
-    
-    return breadcrumbs;
+    return crumbs;
   };
 
-  // Navigate to breadcrumb path
-  const navigateToBreadcrumb = async (targetPath: string) => {
+  const navigateToBreadcrumb = (targetPath: string) => {
     if (!targetPath) {
-      // Navigate to root
-      const treeData = await api.getFileTree();
-      const transformedTree = transformFileTree(treeData);
-      setColumns([
-        { items: transformedTree, selectedPath: null, title: 'Root' },
-        { items: [], selectedPath: null, title: '' },
-        { items: [], selectedPath: null, title: '' }
-      ]);
+      // Root — collapse all, clear selection
+      setExpandedPaths(new Set());
+      setSelectedPath(null);
+      setPreviewItem(null);
+      setPreviewContent('');
       return;
     }
-    
-    // Reload tree and navigate to path
-    await loadFileTree();
-    // TODO: Implement navigation to specific path in tree
-  };
-
-  const handleFileUpload = async (files: FileList | null, columnIndex: number) => {
-    if (!files || files.length === 0) return;
-
-    const parentPath = getColumnPath(columnIndex);
-
-    for (const file of Array.from(files)) {
-      const filePath = parentPath ? `${parentPath}/${file.name}` : file.name;
-
-      try {
-        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
-
-        await api.uploadFile(file, filePath, (progress) => {
-          setUploadProgress(prev => ({ ...prev, [file.name]: progress }));
-        });
-
-        // Remove progress after upload completes
-        setUploadProgress(prev => {
-          const newProgress = { ...prev };
-          delete newProgress[file.name];
-          return newProgress;
-        });
-      } catch (err: any) {
-        alert(`Failed to upload ${file.name}: ${err.message}`);
-        setUploadProgress(prev => {
-          const newProgress = { ...prev };
-          delete newProgress[file.name];
-          return newProgress;
-        });
-      }
+    // Expand all ancestor paths and select the target
+    const parts = targetPath.split('/');
+    const pathsToExpand = new Set<string>();
+    let accumulated = '';
+    for (const part of parts) {
+      accumulated = accumulated ? `${accumulated}/${part}` : part;
+      pathsToExpand.add(accumulated);
     }
+    setExpandedPaths(prev => {
+      const next = new Set(prev);
+      for (const p of pathsToExpand) next.add(p);
+      return next;
+    });
+    setSelectedPath(targetPath);
 
-    await loadFileTree(); // Refresh
+    // If it's a file, load preview
+    const item = findItemByPath(allItems, targetPath);
+    if (item && item.type === 'file' && isPreviewable(item.name)) {
+      handleSelect(item);
+    }
   };
 
-  // Filter items based on search query
-  const filterItems = (items: FileItem[]): FileItem[] => {
-    if (!searchQuery.trim()) return items;
-    
-    const query = searchQuery.toLowerCase();
-    return items.filter(item => 
-      item.name.toLowerCase().includes(query)
+  const breadcrumbs = buildBreadcrumbs();
+
+  // ============================================================================
+  // Render — early returns for loading/error/no-vault states
+  // ============================================================================
+
+  if (vaultLoading) {
+    return (
+      <div className="files-tab">
+        <div className="files-loading">
+          <div className="loading-spinner" />
+          <p>Checking vault...</p>
+        </div>
+      </div>
     );
-  };
+  }
 
-  const handleDragOver = (e: React.DragEvent, columnIndex: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOverColumn(columnIndex);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOverColumn(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, columnIndex: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOverColumn(null);
-    handleFileUpload(e.dataTransfer.files, columnIndex);
-  };
-
-  const getItemIcon = (item: FileItem) => {
-    if (item.type === 'folder') {
-      return item.path === columns[0].selectedPath || 
-             item.path === columns[1].selectedPath ? 
-             '📂' : '📁';
-    }
-    return getFileIcon(getFileType(item.name));
-  };
-
-  const activeContextItem = contextMenu?.item ?? null;
+  if (!vaultConnected) {
+    return (
+      <div className="files-tab">
+        <div className="vault-selector">
+          <div className="vault-selector-icon">&#128218;</div>
+          <h2 className="vault-selector-title">Connect a Vault</h2>
+          <p className="vault-selector-desc">
+            Enter the path to an Obsidian vault or any folder to use as your knowledge base.
+          </p>
+          <div className="vault-selector-form">
+            <div className="vault-path-row">
+              <input
+                type="text"
+                className="vault-path-input"
+                placeholder="C:\Users\you\Documents\MyVault"
+                value={vaultPathInput}
+                onChange={(e) => setVaultPathInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSetVault(); }}
+                disabled={settingVault || browsingVault}
+              />
+              <button
+                className="btn-secondary vault-browse-btn"
+                onClick={handleBrowseVault}
+                disabled={settingVault || browsingVault}
+                title="Browse for a folder"
+              >
+                {browsingVault ? 'Opening...' : 'Browse'}
+              </button>
+            </div>
+            <button
+              className="btn-primary vault-connect-btn"
+              onClick={handleSetVault}
+              disabled={settingVault || browsingVault || !vaultPathInput.trim()}
+            >
+              {settingVault ? 'Connecting...' : 'Connect'}
+            </button>
+          </div>
+          {vaultError && <p className="vault-selector-error">{vaultError}</p>}
+          {vaultInfo?.path && !vaultInfo.exists && (
+            <p className="vault-selector-error">
+              Previously configured vault path no longer exists: {vaultInfo.path}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
       <div className="files-tab">
         <div className="files-loading">
-          <div className="loading-spinner"></div>
+          <div className="loading-spinner" />
           <p>Loading your grimoire...</p>
         </div>
       </div>
@@ -539,34 +801,55 @@ export const FilesTab: React.FC = () => {
     return (
       <div className="files-tab">
         <div className="files-error">
-          <h3>⚠️ Failed to Load Files</h3>
+          <h3>Failed to Load Files</h3>
           <p>{error}</p>
-          <button className="btn-primary" onClick={loadFileTree}>
-            Try Again
-          </button>
+          <button className="btn-primary" onClick={loadFileTree}>Try Again</button>
         </div>
       </div>
     );
   }
 
-  const breadcrumbs = buildBreadcrumbs();
+  const activeContextItem = contextMenu?.item ?? null;
 
   return (
     <div className="files-tab" onClick={closeContextMenu}>
+      {/* Hidden file input — uploads to current folder */}
       <input
         type="file"
         ref={fileInputRef}
         style={{ display: 'none' }}
         multiple
-        onChange={(e) => handleFileUpload(e.target.files, 0)}
+        onChange={(e) => handleFileUpload(e.target.files)}
       />
-      
+
+      {/* Vault Info Bar */}
+      <div className="vault-info-bar">
+        <div className="vault-info-left">
+          <span className="vault-info-path" title={vaultInfo?.path || ''}>
+            {vaultInfo?.path}
+          </span>
+          <div className="vault-info-badges">
+            {vaultInfo?.is_obsidian_vault && <span className="vault-badge obsidian">Obsidian</span>}
+            {vaultInfo?.has_git && <span className="vault-badge git">Git</span>}
+            {vaultInfo?.has_megabook && <span className="vault-badge megabook">.megabook</span>}
+          </div>
+        </div>
+        <div className="vault-info-right">
+          <button className="vault-action-btn" onClick={handleOpenExplorer} title="Open in file explorer">
+            Open in Explorer
+          </button>
+          <button className="vault-action-btn" onClick={() => setVaultInfo(null)} title="Change vault">
+            Change Vault
+          </button>
+        </div>
+      </div>
+
       {/* Breadcrumb Navigation */}
       <div className="files-breadcrumb">
         {breadcrumbs.map((crumb, index) => (
-          <React.Fragment key={crumb.path}>
-            {index > 0 && <span className="breadcrumb-separator">›</span>}
-            <button 
+          <React.Fragment key={crumb.path || '__root__'}>
+            {index > 0 && <span className="breadcrumb-separator">&#8250;</span>}
+            <button
               className={`breadcrumb-item ${index === breadcrumbs.length - 1 ? 'active' : ''}`}
               onClick={() => navigateToBreadcrumb(crumb.path)}
             >
@@ -575,12 +858,13 @@ export const FilesTab: React.FC = () => {
           </React.Fragment>
         ))}
       </div>
-      
+
+      {/* Toolbar */}
       <div className="files-toolbar">
         <div className="files-toolbar-left">
-          <span className="files-toolbar-title">📂 File Library</span>
+          <span className="files-toolbar-title">File Library</span>
           <div className="files-search">
-            <span className="search-icon">🔍</span>
+            <span className="search-icon">&#128269;</span>
             <input
               type="text"
               className="search-input"
@@ -589,13 +873,16 @@ export const FilesTab: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
             {searchQuery && (
-              <button className="search-clear" onClick={() => setSearchQuery('')}>×</button>
+              <button className="search-clear" onClick={() => setSearchQuery('')}>&times;</button>
             )}
           </div>
         </div>
         <div className="files-toolbar-right">
+          <button className="files-toolbar-btn" onClick={handleStartCreateFolder} title="New folder">
+            + Folder
+          </button>
           <button className="files-toolbar-btn" onClick={() => fileInputRef.current?.click()}>
-            📤 Upload Files
+            Upload
           </button>
           <button className="files-toolbar-btn primary" onClick={loadFileTree}>
             Refresh
@@ -603,138 +890,99 @@ export const FilesTab: React.FC = () => {
         </div>
       </div>
 
+      {/* Main content: tree + preview */}
       <div className="files-content">
-        <div className={`miller-columns ${showPreview && previewItem ? 'with-preview' : ''}`}>
-          {columns.filter((column, index) => index === 0 || column.items.length > 0).map((column, columnIndex, filteredColumns) => (
-            <div 
-              key={columnIndex} 
-              className={`miller-column ${columnIndex < filteredColumns.length - 1 ? 'has-next' : ''} ${dragOverColumn === columnIndex ? 'drag-over' : ''}`}
-              onDragOver={(e) => handleDragOver(e, columnIndex)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => {
-                // Check if it's a file move or file upload
-                const draggedPath = e.dataTransfer.getData('text/plain');
-                if (draggedPath && draggingItem) {
-                  handleMoveDrop(e, columnIndex);
-                } else {
-                  handleDrop(e, columnIndex);
-                }
-              }}
-            >
-              <div className="miller-column-header">
-                <span className="column-title">{column.title || 'Select a folder'}</span>
-                <div className="column-actions">
-                  <span className="column-count">
-                    {column.items.length} {column.items.length === 1 ? 'item' : 'items'}
-                  </span>
-                  <button 
-                    className="create-folder-btn" 
-                    onClick={() => handleStartCreateFolder(columnIndex)}
-                    title="Create new folder"
-                  >
-                    + 📁
-                  </button>
+        <div
+          className={`file-tree-panel ${dragOverTree ? 'drag-over' : ''}`}
+          onDragOver={handleTreeDragOver}
+          onDragLeave={handleTreeDragLeave}
+          onDrop={handleTreeDrop}
+        >
+          <div className="file-tree-scroll">
+            {displayItems.map(item => (
+              <TreeItem
+                key={item.path}
+                item={item}
+                depth={0}
+                expandedPaths={expandedPaths}
+                selectedPath={selectedPath}
+                renamingPath={renamingPath}
+                renameValue={renameValue}
+                creatingFolderInPath={creatingFolderInPath}
+                newFolderName={newFolderName}
+                searchQuery={searchQuery}
+                onToggleExpand={handleToggleExpand}
+                onSelect={handleSelect}
+                onContextMenu={handleContextMenu}
+                onRenameChange={setRenameValue}
+                onRenameSubmit={handleRenameSubmit}
+                onRenameCancel={handleRenameCancel}
+                onNewFolderNameChange={setNewFolderName}
+                onCreateFolderSubmit={handleCreateFolderSubmit}
+                onCreateFolderCancel={handleCreateFolderCancel}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                draggingItem={draggingItem}
+              />
+            ))}
+
+            {/* Root-level new-folder input */}
+            {creatingFolderInPath === '__root__' && (
+              <div className="tree-item creating-folder" style={{ paddingLeft: '12px' }}>
+                <span className="item-icon">&#128193;</span>
+                <input
+                  type="text"
+                  className="rename-input"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateFolderSubmit();
+                    if (e.key === 'Escape') handleCreateFolderCancel();
+                  }}
+                  onBlur={handleCreateFolderCancel}
+                  autoFocus
+                  placeholder="Folder name..."
+                />
+              </div>
+            )}
+
+            {displayItems.length === 0 && !loading && (
+              <div className="tree-empty-root">
+                {searchQuery ? 'No files match your search.' : 'This vault is empty. Upload or create files to get started.'}
+              </div>
+            )}
+          </div>
+
+          {/* Upload progress — shown once at the bottom of the tree */}
+          {Object.keys(uploadProgress).length > 0 && (
+            <div className="upload-progress-container">
+              {Object.entries(uploadProgress).map(([filename, progress]) => (
+                <div key={filename} className="upload-progress-item">
+                  <span className="upload-filename">{filename}</span>
+                  <div className="upload-progress-bar">
+                    <div className="upload-progress-fill" style={{ width: `${progress}%` }} />
+                  </div>
+                  <span className="upload-percent">{progress}%</span>
                 </div>
-              </div>
-              
-              <div className="miller-column-content">
-                {filterItems(column.items).map(item => (
-                  <div
-                    key={item.path}
-                    className={`miller-item ${column.selectedPath === item.path ? 'selected' : ''} ${item.type} ${renamingItem?.path === item.path ? 'renaming' : ''} ${draggingItem?.path === item.path ? 'dragging' : ''} ${isPreviewable(item.name) ? 'previewable' : ''}`}
-                    onClick={() => handleItemClick(item, columnIndex)}
-                    onContextMenu={(e) => handleContextMenu(e, item)}
-                    draggable={renamingItem?.path !== item.path}
-                    onDragStart={(e) => handleDragStart(e, item)}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <span className="item-icon">{getItemIcon(item)}</span>
-
-                    {renamingItem?.path === item.path ? (
-                      <input
-                        type="text"
-                        className="rename-input"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleRenameSubmit();
-                          if (e.key === 'Escape') handleRenameCancel();
-                        }}
-                        onBlur={handleRenameCancel}
-                        autoFocus
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      <span className="item-name">{item.name}</span>
-                    )}
-
-                    {item.type === 'folder' && columnIndex < 2 && (
-                      <span className="item-arrow">›</span>
-                    )}
-                    {item.type === 'file' && isPreviewable(item.name) && (
-                      <span className="item-preview-indicator">👁️</span>
-                    )}
-                  </div>
-                ))}
-                
-                {/* Create folder input */}
-                {creatingFolderColumn === columnIndex && (
-                  <div className="miller-item creating-folder">
-                    <span className="item-icon">📁</span>
-                    <input
-                      type="text"
-                      className="rename-input"
-                      value={newFolderName}
-                      onChange={(e) => setNewFolderName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleCreateFolderSubmit();
-                        if (e.key === 'Escape') handleCreateFolderCancel();
-                      }}
-                      onBlur={handleCreateFolderCancel}
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                      placeholder="Folder name..."
-                    />
-                  </div>
-                )}
-                
-                {/* Upload progress */}
-                {Object.entries(uploadProgress).length > 0 && (
-                  <div className="upload-progress-container">
-                    {Object.entries(uploadProgress).map(([filename, progress]) => (
-                      <div key={filename} className="upload-progress-item">
-                        <span className="upload-filename">{filename}</span>
-                        <div className="upload-progress-bar">
-                          <div className="upload-progress-fill" style={{ width: `${progress}%` }} />
-                        </div>
-                        <span className="upload-percent">{progress}%</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
 
         {/* Preview Panel */}
-        {showPreview && previewItem && (
+        {previewItem && (
           <div className="files-preview-panel">
             <div className="preview-panel-header">
               <span className="preview-panel-title">File Preview</span>
               <div className="preview-panel-actions">
                 {canOpenInNotes(previewItem) && (
-                  <button 
-                    className="preview-action-btn" 
+                  <button
+                    className="preview-action-btn"
                     onClick={async () => {
                       try {
                         const response = await api.readFile(previewItem.path);
                         window.dispatchEvent(new CustomEvent('openFileInNotes', {
-                          detail: {
-                            path: previewItem.path,
-                            name: previewItem.name,
-                            content: response.content || ''
-                          }
+                          detail: { path: previewItem.path, name: previewItem.name, content: response.content || '' }
                         }));
                       } catch (err: any) {
                         alert('Failed to open file: ' + err.message);
@@ -742,15 +990,15 @@ export const FilesTab: React.FC = () => {
                     }}
                     title="Open in Notes"
                   >
-                    📝 Edit
+                    Edit
                   </button>
                 )}
-                <button 
-                  className="preview-action-btn" 
-                  onClick={() => setShowPreview(false)}
+                <button
+                  className="preview-action-btn"
+                  onClick={() => { setPreviewItem(null); setPreviewContent(''); }}
                   title="Close preview"
                 >
-                  ✕
+                  &#10005;
                 </button>
               </div>
             </div>
@@ -758,11 +1006,7 @@ export const FilesTab: React.FC = () => {
               {previewLoading ? (
                 <div className="preview-loading">Loading preview...</div>
               ) : (
-                <FilePreview
-                  path={previewItem.path}
-                  name={previewItem.name}
-                  content={previewContent}
-                />
+                <FilePreview path={previewItem.path} name={previewItem.name} content={previewContent} />
               )}
             </div>
           </div>
@@ -771,57 +1015,53 @@ export const FilesTab: React.FC = () => {
 
       {/* Context Menu */}
       {contextMenu && activeContextItem && (
-        <div 
+        <div
           className="files-context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="context-menu-header">
-            {getItemIcon(activeContextItem)} {activeContextItem.name}
+            {activeContextItem.type === 'folder' ? '&#128193;' : getFileIcon(getFileType(activeContextItem.name))} {activeContextItem.name}
           </div>
           <div className="context-menu-divider" />
-          
+
           {canOpenInNotes(activeContextItem) && (
             <>
               <button className="context-menu-item" onClick={handleOpenFile}>
-                <span className="menu-icon">📖</span>
+                <span className="menu-icon">&#128214;</span>
                 <span>Open in Notes</span>
               </button>
-              <button className="context-menu-item" onClick={handleOpenInSplit}>
-                <span className="menu-icon">⚡</span>
-                <span>Open in Split View</span>
-              </button>
               <div className="context-menu-divider" />
             </>
           )}
-          
+
           <button className="context-menu-item" onClick={handleStartRename}>
-            <span className="menu-icon">✏️</span>
+            <span className="menu-icon">&#9999;</span>
             <span>Rename</span>
           </button>
-          
+
           <button className="context-menu-item" onClick={handleCopy}>
-            <span className="menu-icon">📄</span>
+            <span className="menu-icon">&#128196;</span>
             <span>Duplicate</span>
           </button>
-          
+
           {activeContextItem.type === 'file' && (
-            <>
-              <button className="context-menu-item" onClick={handleDownload}>
-                <span className="menu-icon">⬇️</span>
-                <span>Download</span>
-              </button>
-              <div className="context-menu-divider" />
-              <button className="context-menu-item danger" onClick={handleDeleteFile}>
-                <span className="menu-icon">🗑️</span>
-                <span>Delete</span>
-              </button>
-            </>
+            <button className="context-menu-item" onClick={handleDownload}>
+              <span className="menu-icon">&#11015;</span>
+              <span>Download</span>
+            </button>
           )}
-          
+
+          <div className="context-menu-divider" />
+
+          <button className="context-menu-item danger" onClick={handleDeleteItem}>
+            <span className="menu-icon">&#128465;</span>
+            <span>Delete</span>
+          </button>
+
           <div className="context-menu-divider" />
           <button className="context-menu-item" onClick={handleCopyPath}>
-            <span className="menu-icon">📋</span>
+            <span className="menu-icon">&#128203;</span>
             <span>Copy Path</span>
           </button>
         </div>
@@ -835,7 +1075,7 @@ export const FilesTab: React.FC = () => {
         </div>
         <div className="status-divider" />
         <div className="status-section">
-          <span className="status-hint">💡 Right-click for context menu • Drag files to upload</span>
+          <span className="status-hint">Right-click for context menu &bull; Drag files to upload</span>
         </div>
       </div>
     </div>

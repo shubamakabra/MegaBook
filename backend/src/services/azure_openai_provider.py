@@ -1,5 +1,6 @@
 """Azure OpenAI Provider using the openai package (more reliable)."""
 import json
+import time
 from typing import Any, Dict, List, Optional
 from openai import AzureOpenAI
 
@@ -85,6 +86,7 @@ class AzureOpenAIProvider(LLMProvider):
         
         messages.append({"role": "user", "content": prompt})
         
+        start_time = time.time()
         try:
             # Run synchronous OpenAI call in thread pool
             loop = asyncio.get_event_loop()
@@ -104,13 +106,50 @@ class AzureOpenAIProvider(LLMProvider):
                 total_tokens=response.usage.total_tokens,
             )
             
+            content = response.choices[0].message.content
+            duration_ms = (time.time() - start_time) * 1000
+            
+            # Log the call
+            if self._logger:
+                cost_per_1k = self.get_cost_per_1k_tokens()
+                cost_usd = (cost_per_1k["input"] * usage.prompt_tokens / 1000) + (cost_per_1k["output"] * usage.completion_tokens / 1000)
+                self._logger.log_call(
+                    method="generate_text",
+                    model=self.model,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    prompt_tokens=usage.prompt_tokens,
+                    completion_tokens=usage.completion_tokens,
+                    total_tokens=usage.total_tokens,
+                    cost_usd=cost_usd,
+                    duration_ms=duration_ms,
+                    success=True,
+                    response_preview=content,
+                )
+            
             return LLMResponse(
-                content=response.choices[0].message.content,
+                content=content,
                 usage=usage,
                 model=self.model,
             )
         except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
             print(f"Azure OpenAI API error: {e}")
+            
+            if self._logger:
+                self._logger.log_call(
+                    method="generate_text",
+                    model=self.model,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    duration_ms=duration_ms,
+                    success=False,
+                    error=str(e),
+                )
             raise
     
     async def generate_structured_output(
@@ -138,6 +177,7 @@ Respond ONLY with the JSON, no other text."""
         
         messages.append({"role": "user", "content": prompt})
         
+        start_time = time.time()
         try:
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
@@ -158,13 +198,45 @@ Respond ONLY with the JSON, no other text."""
                 total_tokens=response.usage.total_tokens,
             )
             
+            duration_ms = (time.time() - start_time) * 1000
+            
+            # Log the call
+            if self._logger:
+                cost_per_1k = self.get_cost_per_1k_tokens()
+                cost_usd = (cost_per_1k["input"] * usage.prompt_tokens / 1000) + (cost_per_1k["output"] * usage.completion_tokens / 1000)
+                self._logger.log_call(
+                    method="generate_structured_output",
+                    model=self.model,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    prompt_tokens=usage.prompt_tokens,
+                    completion_tokens=usage.completion_tokens,
+                    total_tokens=usage.total_tokens,
+                    cost_usd=cost_usd,
+                    duration_ms=duration_ms,
+                    success=True,
+                    response_preview=content,
+                )
+            
             return StructuredLLMResponse(
                 data=data,
                 usage=usage,
                 model=self.model,
             )
         except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
             print(f"Azure OpenAI structured output error: {e}")
+            
+            if self._logger:
+                self._logger.log_call(
+                    method="generate_structured_output",
+                    model=self.model,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    duration_ms=duration_ms,
+                    success=False,
+                    error=str(e),
+                )
             raise
     
     async def generate_embeddings(
@@ -175,6 +247,8 @@ Respond ONLY with the JSON, no other text."""
         """Generate embeddings using Azure OpenAI."""
         import asyncio
         
+        start_time = time.time()
+        total_chars = sum(len(t) for t in texts)
         try:
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
@@ -185,9 +259,31 @@ Respond ONLY with the JSON, no other text."""
                 )
             )
             
+            duration_ms = (time.time() - start_time) * 1000
+            
+            if self._logger:
+                self._logger.log_embeddings_call(
+                    model=self.model,
+                    num_texts=len(texts),
+                    total_chars=total_chars,
+                    duration_ms=duration_ms,
+                    success=True,
+                )
+            
             return [item.embedding for item in response.data]
         except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
             print(f"Azure OpenAI embeddings error: {e}")
+            
+            if self._logger:
+                self._logger.log_embeddings_call(
+                    model=self.model,
+                    num_texts=len(texts),
+                    total_chars=total_chars,
+                    duration_ms=duration_ms,
+                    success=False,
+                    error=str(e),
+                )
             raise
     
     def get_token_count(self, text: str) -> int:

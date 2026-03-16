@@ -8,13 +8,16 @@ Works with any OpenAI-compatible API including:
 - Any other OpenAI-compatible endpoint
 """
 import json
+import time
 from typing import Any, Dict, List, Optional
 from openai import OpenAI
 
 from src.services.llm_provider import (
     LLMProvider,
     LLMResponse,
+    ChatCompletionResult,
     StructuredLLMResponse,
+    ToolCall,
     UsageInfo,
 )
 
@@ -97,6 +100,7 @@ class OpenAICompatibleProvider(LLMProvider):
         
         messages.append({"role": "user", "content": prompt})
         
+        start_time = time.time()
         try:
             # Debug: Log the exact request being made
             import json
@@ -127,6 +131,27 @@ class OpenAICompatibleProvider(LLMProvider):
             )
             
             content = response.choices[0].message.content or ""
+            duration_ms = (time.time() - start_time) * 1000
+            
+            # Log the call
+            if self._logger:
+                cost_per_1k = self.get_cost_per_1k_tokens()
+                cost_usd = (cost_per_1k["input"] * usage.prompt_tokens / 1000) + (cost_per_1k["output"] * usage.completion_tokens / 1000)
+                self._logger.log_call(
+                    method="generate_text",
+                    model=self.model,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    prompt_tokens=usage.prompt_tokens,
+                    completion_tokens=usage.completion_tokens,
+                    total_tokens=usage.total_tokens,
+                    cost_usd=cost_usd,
+                    duration_ms=duration_ms,
+                    success=True,
+                    response_preview=content,
+                )
             
             return LLMResponse(
                 content=content,
@@ -134,9 +159,24 @@ class OpenAICompatibleProvider(LLMProvider):
                 model=self.model,
             )
         except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
             print(f"   [API ERROR] OpenAI API error: {e}")
             import traceback
             traceback.print_exc()
+            
+            # Log the failed call
+            if self._logger:
+                self._logger.log_call(
+                    method="generate_text",
+                    model=self.model,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    duration_ms=duration_ms,
+                    success=False,
+                    error=str(e),
+                )
             raise
     
     async def generate_chat_response(
@@ -158,6 +198,7 @@ class OpenAICompatibleProvider(LLMProvider):
         """
         import asyncio
         
+        start_time = time.time()
         try:
             # Debug: Log the request
             print(f"   [CHAT CALL] Model: {self.model}")
@@ -188,6 +229,26 @@ class OpenAICompatibleProvider(LLMProvider):
             )
             
             content = response.choices[0].message.content or ""
+            duration_ms = (time.time() - start_time) * 1000
+            
+            # Log the call
+            if self._logger:
+                cost_per_1k = self.get_cost_per_1k_tokens()
+                cost_usd = (cost_per_1k["input"] * usage.prompt_tokens / 1000) + (cost_per_1k["output"] * usage.completion_tokens / 1000)
+                self._logger.log_call(
+                    method="generate_chat_response",
+                    model=self.model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    prompt_tokens=usage.prompt_tokens,
+                    completion_tokens=usage.completion_tokens,
+                    total_tokens=usage.total_tokens,
+                    cost_usd=cost_usd,
+                    duration_ms=duration_ms,
+                    success=True,
+                    response_preview=content,
+                )
             
             return LLMResponse(
                 content=content,
@@ -195,11 +256,149 @@ class OpenAICompatibleProvider(LLMProvider):
                 model=self.model,
             )
         except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
             print(f"   [CHAT ERROR] OpenAI API error: {e}")
             import traceback
             traceback.print_exc()
+            
+            # Log the failed call
+            if self._logger:
+                self._logger.log_call(
+                    method="generate_chat_response",
+                    model=self.model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    duration_ms=duration_ms,
+                    success=False,
+                    error=str(e),
+                )
             raise
     
+    async def generate_chat_with_tools(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        **kwargs: Any,
+    ) -> ChatCompletionResult:
+        """Generate a chat completion that may include tool calls.
+
+        This is the agent-loop variant of generate_chat_response. It passes
+        OpenAI function-calling ``tools`` and returns a ``ChatCompletionResult``
+        that exposes ``tool_calls`` when the model wants to invoke a tool.
+
+        Messages may include ``role: "tool"`` entries with tool results from
+        previous iterations of the loop.
+        """
+        import asyncio
+
+        start_time = time.time()
+        try:
+            print(f"   [AGENT CALL] Model: {self.model}")
+            print(f"   [AGENT CALL] Messages count: {len(messages)}")
+            print(f"   [AGENT CALL] Tools: {[t['function']['name'] for t in (tools or [])]}")
+            for i, msg in enumerate(messages):
+                role = msg.get("role", "?")
+                content_preview = str(msg.get("content", ""))[:120]
+                tc = msg.get("tool_calls")
+                extra = f" [+{len(tc)} tool_calls]" if tc else ""
+                tid = msg.get("tool_call_id", "")
+                extra2 = f" [tool_call_id={tid}]" if tid else ""
+                print(f"      [{i}] {role}{extra}{extra2}: {content_preview}")
+
+            # Build kwargs for the API call
+            create_kwargs: Dict[str, Any] = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature,
+            }
+            if max_tokens is not None:
+                create_kwargs["max_tokens"] = max_tokens
+            if tools:
+                create_kwargs["tools"] = tools
+
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.client.chat.completions.create(**create_kwargs),
+            )
+
+            choice = response.choices[0]
+            message = choice.message
+
+            usage = UsageInfo(
+                prompt_tokens=getattr(response.usage, "prompt_tokens", 0) if response.usage else 0,
+                completion_tokens=getattr(response.usage, "completion_tokens", 0) if response.usage else 0,
+                total_tokens=getattr(response.usage, "total_tokens", 0) if response.usage else 0,
+            )
+
+            # Parse tool calls if present
+            parsed_tool_calls: List[ToolCall] = []
+            if message.tool_calls:
+                for tc in message.tool_calls:
+                    parsed_tool_calls.append(ToolCall(
+                        id=tc.id,
+                        function_name=tc.function.name,
+                        arguments=tc.function.arguments,
+                    ))
+
+            duration_ms = (time.time() - start_time) * 1000
+            finish_reason = choice.finish_reason or "stop"
+
+            print(f"   [AGENT RESULT] finish_reason={finish_reason}, tool_calls={len(parsed_tool_calls)}, content_len={len(message.content or '')}")
+
+            # Log the call
+            if self._logger:
+                cost_per_1k = self.get_cost_per_1k_tokens()
+                cost_usd = (cost_per_1k["input"] * usage.prompt_tokens / 1000) + (cost_per_1k["output"] * usage.completion_tokens / 1000)
+                self._logger.log_call(
+                    method="generate_chat_with_tools",
+                    model=self.model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    prompt_tokens=usage.prompt_tokens,
+                    completion_tokens=usage.completion_tokens,
+                    total_tokens=usage.total_tokens,
+                    cost_usd=cost_usd,
+                    duration_ms=duration_ms,
+                    success=True,
+                    response_preview=message.content or f"[{len(parsed_tool_calls)} tool calls]",
+                    extra={
+                        "finish_reason": finish_reason,
+                        "tool_calls": [{"name": tc.function_name, "id": tc.id} for tc in parsed_tool_calls],
+                    },
+                )
+
+            return ChatCompletionResult(
+                content=message.content,
+                tool_calls=parsed_tool_calls,
+                usage=usage,
+                model=self.model,
+                finish_reason=finish_reason,
+            )
+
+        except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
+            print(f"   [AGENT ERROR] OpenAI API error: {e}")
+            import traceback
+            traceback.print_exc()
+
+            if self._logger:
+                self._logger.log_call(
+                    method="generate_chat_with_tools",
+                    model=self.model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    duration_ms=duration_ms,
+                    success=False,
+                    error=str(e),
+                )
+            raise
+
     async def generate_structured_output(
         self,
         prompt: str,
@@ -225,6 +424,7 @@ Respond ONLY with the JSON, no other text."""
         
         messages.append({"role": "user", "content": prompt})
         
+        start_time = time.time()
         try:
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
@@ -245,13 +445,47 @@ Respond ONLY with the JSON, no other text."""
                 total_tokens=getattr(response.usage, 'total_tokens', 0) if response.usage else 0,
             )
             
+            duration_ms = (time.time() - start_time) * 1000
+            
+            # Log the call
+            if self._logger:
+                cost_per_1k = self.get_cost_per_1k_tokens()
+                cost_usd = (cost_per_1k["input"] * usage.prompt_tokens / 1000) + (cost_per_1k["output"] * usage.completion_tokens / 1000)
+                self._logger.log_call(
+                    method="generate_structured_output",
+                    model=self.model,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    prompt_tokens=usage.prompt_tokens,
+                    completion_tokens=usage.completion_tokens,
+                    total_tokens=usage.total_tokens,
+                    cost_usd=cost_usd,
+                    duration_ms=duration_ms,
+                    success=True,
+                    response_preview=content,
+                    extra={"schema_keys": list(output_schema.get("properties", {}).keys()) if "properties" in output_schema else []},
+                )
+            
             return StructuredLLMResponse(
                 data=data,
                 usage=usage,
                 model=self.model,
             )
         except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
             print(f"OpenAI structured output error: {e}")
+            
+            # Log the failed call
+            if self._logger:
+                self._logger.log_call(
+                    method="generate_structured_output",
+                    model=self.model,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    duration_ms=duration_ms,
+                    success=False,
+                    error=str(e),
+                )
             raise
     
     async def generate_embeddings(
@@ -262,6 +496,8 @@ Respond ONLY with the JSON, no other text."""
         """Generate embeddings using OpenAI-compatible API."""
         import asyncio
         
+        start_time = time.time()
+        total_chars = sum(len(t) for t in texts)
         try:
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
@@ -272,9 +508,32 @@ Respond ONLY with the JSON, no other text."""
                 )
             )
             
+            duration_ms = (time.time() - start_time) * 1000
+            
+            # Log the call
+            if self._logger:
+                self._logger.log_embeddings_call(
+                    model=self.model,
+                    num_texts=len(texts),
+                    total_chars=total_chars,
+                    duration_ms=duration_ms,
+                    success=True,
+                )
+            
             return [item.embedding for item in response.data]
         except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
             print(f"OpenAI embeddings error: {e}")
+            
+            if self._logger:
+                self._logger.log_embeddings_call(
+                    model=self.model,
+                    num_texts=len(texts),
+                    total_chars=total_chars,
+                    duration_ms=duration_ms,
+                    success=False,
+                    error=str(e),
+                )
             raise
     
     def get_token_count(self, text: str) -> int:

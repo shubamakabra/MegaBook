@@ -6,6 +6,7 @@ It returns realistic-looking but fake data with zero cost.
 import json
 import random
 import hashlib
+import time
 from typing import Any, Dict, List, Optional
 
 from src.services.llm_provider import (
@@ -40,6 +41,7 @@ class MockProvider(LLMProvider):
     ) -> LLMResponse:
         """Generate fake text response."""
         self.response_count += 1
+        start_time = time.time()
         
         # Generate a mock response based on the prompt
         content = self._generate_mock_text(prompt)
@@ -47,14 +49,36 @@ class MockProvider(LLMProvider):
         # Calculate fake usage
         prompt_tokens = len(prompt.split())
         completion_tokens = len(content.split())
+        usage = UsageInfo(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+        )
+        
+        duration_ms = (time.time() - start_time) * 1000
+        
+        # Log the call
+        if self._logger:
+            self._logger.log_call(
+                method="generate_text",
+                model=self.model,
+                prompt=prompt,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                prompt_tokens=usage.prompt_tokens,
+                completion_tokens=usage.completion_tokens,
+                total_tokens=usage.total_tokens,
+                cost_usd=0.0,
+                duration_ms=duration_ms,
+                success=True,
+                response_preview=content,
+                extra={"provider": "mock"},
+            )
         
         return LLMResponse(
             content=content,
-            usage=UsageInfo(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=prompt_tokens + completion_tokens,
-            ),
+            usage=usage,
             model=self.model,
         )
     
@@ -67,20 +91,41 @@ class MockProvider(LLMProvider):
     ) -> StructuredLLMResponse[Dict[str, Any]]:
         """Generate fake structured output."""
         self.response_count += 1
+        start_time = time.time()
         
         # Generate mock structured data
         data = self._generate_mock_structured(prompt, output_schema)
         
         prompt_tokens = len(prompt.split())
         completion_tokens = len(json.dumps(data).split())
+        usage = UsageInfo(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+        )
+        
+        duration_ms = (time.time() - start_time) * 1000
+        
+        # Log the call
+        if self._logger:
+            self._logger.log_call(
+                method="generate_structured_output",
+                model=self.model,
+                prompt=prompt,
+                system_prompt=system_prompt,
+                prompt_tokens=usage.prompt_tokens,
+                completion_tokens=usage.completion_tokens,
+                total_tokens=usage.total_tokens,
+                cost_usd=0.0,
+                duration_ms=duration_ms,
+                success=True,
+                response_preview=json.dumps(data)[:300],
+                extra={"provider": "mock"},
+            )
         
         return StructuredLLMResponse(
             data=data,
-            usage=UsageInfo(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=prompt_tokens + completion_tokens,
-            ),
+            usage=usage,
             model=self.model,
         )
     
@@ -90,11 +135,26 @@ class MockProvider(LLMProvider):
         **kwargs: Any
     ) -> List[List[float]]:
         """Generate fake embeddings (deterministic based on text)."""
+        start_time = time.time()
+        total_chars = sum(len(t) for t in texts)
+        
         embeddings = []
         for text in texts:
             # Create deterministic embedding from text hash
             embedding = self._generate_mock_embedding(text)
             embeddings.append(embedding)
+        
+        duration_ms = (time.time() - start_time) * 1000
+        
+        if self._logger:
+            self._logger.log_embeddings_call(
+                model=self.model,
+                num_texts=len(texts),
+                total_chars=total_chars,
+                duration_ms=duration_ms,
+                success=True,
+            )
+        
         return embeddings
     
     def get_token_count(self, text: str) -> int:

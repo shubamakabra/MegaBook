@@ -2,7 +2,6 @@
 
 export interface FileInfo {
   path: string;
-  layer: 'prompts' | 'notes' | 'wiki';
   relative_path: string;
   size: number;
   modified: number;
@@ -19,7 +18,6 @@ export interface FileTreeNode {
 export interface FileContent {
   path: string;
   content: string;
-  layer: string;
 }
 
 export interface GitStatus {
@@ -86,6 +84,14 @@ export interface ProposedChange {
   proposed_content: string;
   reason: string;
   confidence: number;
+}
+
+export interface VaultInfo {
+  path: string | null;
+  exists: boolean;
+  is_obsidian_vault: boolean;
+  has_megabook: boolean;
+  has_git: boolean;
 }
 
 export type AdminTab = 

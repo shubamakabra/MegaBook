@@ -90,6 +90,27 @@ MegaBook transforms raw session notes and imported content into structured knowl
 
 ## Setup
 
+### Run frontend and backend together
+
+From the repository root:
+
+```bash
+make run
+```
+
+This starts:
+- Backend: `poetry run uvicorn src.main:app --reload`
+- Frontend: `npm run dev`
+
+Backend startup resolution order:
+- `poetry run uvicorn ...` (if Poetry is available)
+- `backend/venv` Python
+- Root `.venv` Python
+
+Use `Ctrl+C` to stop both processes.
+
+If port `1420` is already in use, frontend will automatically pick the next available port.
+
 ### Backend
 
 **Option 1: Using pip (standard)**

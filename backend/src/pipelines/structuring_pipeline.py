@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.core.filesystem import FilesystemService, KnowledgeLayer
+from src.core.filesystem import FilesystemService
 from src.pipelines.base import Pipeline, PipelineResult
 from src.services.llm_provider import LLMProvider
 from src.services.cost_tracking import CostTrackingService
@@ -113,7 +113,7 @@ class StructuringPipeline(Pipeline[StructuringResult]):
                 ))
         else:
             # Process all prompts in prompts/
-            files = self.filesystem.list_files(layer=KnowledgeLayer.PROMPTS)
+            files = self.filesystem.list_files(folder="prompts")
             for file_info in files:
                 content = self.filesystem.read_file(file_info.relative_path)
                 self._processing_items.append(ProcessingItem(
@@ -228,7 +228,7 @@ Respond with a JSON object containing:
     ) -> List[Dict[str, Any]]:
         """Find existing notes related to the analysis."""
         # Get all existing notes
-        existing_notes = self.filesystem.list_files(layer=KnowledgeLayer.NOTES)
+        existing_notes = self.filesystem.list_files(folder="notes")
         
         if not existing_notes:
             return []
@@ -414,7 +414,6 @@ tags: []
                 self.filesystem.write_file(
                     change.target_path,
                     change.proposed_content,
-                    layer=KnowledgeLayer.NOTES,
                 )
                 applied.append(change.target_path)
             except Exception as e:

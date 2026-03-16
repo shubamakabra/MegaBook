@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { ObsidianMarkdown } from './ObsidianMarkdown';
 import './FilePreview.css';
 
 export type PreviewFileType = 'image' | 'audio' | 'markdown' | 'text' | 'pdf' | 'unknown';
@@ -120,9 +119,10 @@ export const FilePreview: React.FC<FilePreviewProps> = ({
       case 'markdown':
         return (
           <div className="preview-markdown">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {content || '*Empty file*'}
-            </ReactMarkdown>
+            <ObsidianMarkdown
+              content={content || '*Empty file*'}
+              filePath={path}
+            />
           </div>
         );
 

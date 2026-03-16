@@ -9,7 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.core import FilesystemService, GitService, settings
 from src.services import LLMProviderFactory, ProviderType, CostTrackingService
 from src.services.embedding_service import EmbeddingService
+from src.services.llm_call_logger import LLMCallLogger
 from src.api.routes import filesystem, git, pipelines, query, costs, entities, imagegen, chat
+from src.api.routes import vault as vault_routes
 from src.dependencies import set_services
 
 
@@ -22,6 +24,22 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     # Startup
     print("Starting MegaBook backend...")
+    
+    # Load persisted vault path from config if available
+    config_file = Path(__file__).parent.parent / "megabook_config.json"
+    if config_file.exists():
+        try:
+            import json as _json
+            with open(config_file, "r", encoding="utf-8") as f:
+                app_config = _json.load(f)
+            saved_vault = app_config.get("vault_path")
+            if saved_vault and Path(saved_vault).exists():
+                settings.repo_path = Path(saved_vault)
+                print(f"[VAULT] Loaded saved vault: {saved_vault}")
+            elif saved_vault:
+                print(f"[VAULT] Saved vault path no longer exists: {saved_vault}")
+        except Exception as e:
+            print(f"[VAULT] Failed to load config: {e}")
     
     # Initialize services
     _services["filesystem"] = FilesystemService(settings.repo_path)
@@ -152,6 +170,14 @@ async def lifespan(app: FastAPI):
         cost_limit_nok=settings.cost_limit_nok,
     )
     
+    # Initialize LLM call logger and attach to provider
+    llm_logger = LLMCallLogger(log_dir=settings.logs_path)
+    _services["llm_logger"] = llm_logger
+    
+    if _services.get("llm_provider"):
+        _services["llm_provider"].set_logger(llm_logger)
+        print(f"[OK] LLM call logger initialized: {settings.logs_path}")
+    
     # Initialize embedding service
     _services["embedding"] = EmbeddingService(
         db_path=settings.vector_db_path,
@@ -236,6 +262,12 @@ app.include_router(
     chat.router,
     prefix="/api/chat",
     tags=["chat"],
+)
+
+app.include_router(
+    vault_routes.router,
+    prefix="/api/vault",
+    tags=["vault"],
 )
 
 

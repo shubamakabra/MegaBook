@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.core.filesystem import FilesystemService, KnowledgeLayer
+from src.core.filesystem import FilesystemService
 from src.pipelines.base import Pipeline, PipelineResult
 from src.services.embedding_service import EmbeddingService
 from src.services.llm_provider import LLMProvider
@@ -84,7 +84,7 @@ class EmbeddingPipeline(Pipeline[EmbeddingResult]):
                 ))
         else:
             # Get all notes
-            all_notes = self.filesystem.list_files(layer=KnowledgeLayer.NOTES)
+            all_notes = self.filesystem.list_files(folder="notes")
             for note_info in all_notes:
                 content = self.filesystem.read_file(note_info.relative_path)
                 self._current_items.append(EmbeddingItem(

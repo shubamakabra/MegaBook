@@ -8,6 +8,7 @@ from src.services.llm_provider import (
     LLMProviderFactory,
 )
 from src.services.cost_tracking import CostTrackingService, CostBreakdown, SessionCosts
+from src.services.llm_call_logger import LLMCallLogger
 
 # Import providers to register them
 from src.services.azure_provider import AzureProvider
@@ -24,4 +25,5 @@ __all__ = [
     "CostTrackingService",
     "CostBreakdown",
     "SessionCosts",
+    "LLMCallLogger",
 ]
